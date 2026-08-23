@@ -40,6 +40,7 @@ dokümante edilmiş olmalı.
 - `docs/adr/` — karar kayıtları (ADR-001: rollback stratejileri, ADR-002: manifest kilit/tz)
 - `docs/discipline.md` — çalışma disiplini protokolü
 - `docs/plans/` — milestone uygulama planları (tamamlananlar tarihsel kayıttır)
+- `docs/ROADMAP.md` — kısa/orta/uzun vade yapılacaklar + açık kararlar (kanlı TODO)
 - `src/osbak/*/NOTES.md` — her modülün LLM notları (tuzaklar, davranış sözleşmeleri)
 
 ## Başlarken
