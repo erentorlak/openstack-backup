@@ -437,13 +437,21 @@ from sqlalchemy import select
 
 from osbak.mover.chunker import DEFAULT_BLOCK_SIZE, Extent
 from osbak.mover.service import ExportService, ExportStats
-from osbak.models import Chunk, VolumeBackup, VolumeChunkMap
+from osbak.models import Chunk, RestorePoint, VolumeBackup, VolumeChunkMap
 from tests.fake_source import FakeVolumeSource
 from tests.memory_store import MemoryChunkStore
 
 
+def _restore_point(session) -> RestorePoint:
+    rp = RestorePoint(kind="snapshot", instance_id=1, manifest={}, status="active")
+    session.add(rp)
+    session.flush()
+    return rp
+
+
 def _volume_backup(session, tier: str = "t0"):
-    vb = VolumeBackup(restore_point_id=None, volume_ref_id=None,
+    rp = _restore_point(session)
+    vb = VolumeBackup(restore_point_id=rp.id, volume_ref_id=None,
                       snapshot_ref="pool-a/v-root@s-1", tier=tier, object_manifest={})
     session.add(vb)
     session.flush()
