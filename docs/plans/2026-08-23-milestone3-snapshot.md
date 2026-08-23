@@ -170,17 +170,13 @@ git commit -m "feat: provider capabilities model and SnapshotProvider protocol"
 - Consumes: `osbak.providers.base` (ProviderCapabilities, ProviderUnavailable, SnapshotTarget, SnapshotRef).
 - Produces:
   - `snap_name(instance_id: str, ts: str, seq: int) -> str` — saf fonksiyon; `f"bkp-{instance_id}-{ts}-{seq}"`. RBD snapshotı adı; `bkp-` prefix'i Cinder/Glance snapshot'larından ayrıştırır (AGENTS tasarım sınırı).
-  - `CephProvider` — `name="ceph"`, `capabilities=ProviderCapabilities(can_snapshot=True, native_diff=True, data_path="rbd", rollback=frozenset({"live","cold","rebuild"}), source_kind="pool")`. `__init__`:
+  - `CephProvider` — `name="ceph"`, `capabilities=ProviderCapabilities(can_snapshot=True, native_diff=True, data_path="rbd", rollback=frozenset({"live","cold","rebuild"}), source_kind="pool")`. `__init__` **yalnızca find_spec probu yapar, import ETMEZ** (import edilse rados kurulu olmayan venv'de `__init__` patlar; ayrıca import ederek test'i bozmak yerine prob tek doğruluktur):
     ```python
     def __init__(self) -> None:
         if importlib.util.find_spec("rados") is None:
             raise ProviderUnavailable("rados python binding kurulu değil (osbak[ceph])")
-        import rados  # noqa: F401  — burada bindin varlığını doğrula
-        import rbd  # noqa: F401
-        self._rados = rados
-        self._rbd = rbd
     ```
-  - `snapshot(target, name_prefix)` ve `delete(ref)` — gerçek rados kod yolu (birim test kapsamı dışı, canlı ortam). Implementasyon rados.Rados(...)/ioctx/Image.create_snap kullanır; tam komut canlı doğrulamada netleşir, NOTES'a yazılır.
+  - `snapshot(target, name_prefix)` ve `delete(ref)` — gerçek rados kod yolu (birim test kapsamı dışı, canlı ortam). İçlerinde `rados = importlib.import_module("rados"); rbd = importlib.import_module("rbd")` (çağrı anında, canlı ortamda kurulu olur). Implementasyon rados.Rados(...)/ioctx/Image.create_snap kullanır; tam komut canlı doğrulamada netleşir, NOTES'a yazılır. `snapshot` yine de deterministik bir `SnapshotRef` döndürmeli (döndürülen snapshot adı `snap_name(target.instance_id, _utc_iso(), 1)`).
 
 - [ ] **Step 1: Failing test**
 
@@ -214,19 +210,13 @@ def test_ceph_provider_capabilities() -> None:
     assert caps.data_path == "rbd"
 
 
-def test_ceph_provider_matches_if_rados_present(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ceph_provider_constructs_if_rados_spec_present(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _present(name: str):
+        return types.SimpleNamespace()
+
     import types
 
-    fake_rados = types.SimpleNamespace()
-    fake_rbd = types.SimpleNamespace()
-
-    def _spec(name: str):
-        if name == "rados":
-            return types.SimpleNamespace()
-        return None
-
-    monkeypatch.setattr(importlib.util, "find_spec", _spec)
-    monkeypatch.setattr("osbak.providers.ceph.rados", fake_rados, raising=False)
+    monkeypatch.setattr(importlib.util, "find_spec", _present)
     provider = CephProvider()
     assert provider.name == "ceph"
 ```
@@ -274,18 +264,12 @@ class CephProvider:
     def __init__(self) -> None:
         if importlib.util.find_spec("rados") is None:
             raise ProviderUnavailable("rados python binding kurulu değil (osbak[ceph])")
-        import rados  # noqa: F401
-        import rbd  # noqa: F401
-
-        self._rados = rados
-        self._rbd = rbd
 
     def snapshot(self, target: SnapshotTarget, name_prefix: str) -> SnapshotRef:
         # Gerçek rados yolu canlı ortamda doğrulanır (birim test kapsamı dışı).
-        # Spesifik şema: Rados.connect → open_ioctx(target.pool) → open(target.image)
-        # → create_snap(snap_name(...)) — kesin komut canlı doğrulamada netleşecek.
-        from osbak.providers.ceph import snap_name  # yukarıda tanımlı
-
+        # Çağrı anında: rados = importlib.import_module("rados"); rbd = ...;
+        # Rados().connect → open_ioctx(target.pool) → Image.open(target.image)
+        # → create_snap(<bkp- adı>) — kesin komut canlı doğrulamada netleşecek.
         snapshot = snap_name(target.instance_id, _utc_iso(), 1)
         return SnapshotRef(
             provider=self.name,
