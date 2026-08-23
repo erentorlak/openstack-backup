@@ -121,6 +121,53 @@ def test_snapshot_quiesce_teardown_on_provider_error(session) -> None:
     assert len(session.scalars(select(RestorePoint)).all()) == 0  # rollback: kısmi kayıt yok
 
 
+class _QuiesceFailsGateway(FakeGateway):
+    def quiesce_guest(self, server_id: str) -> None:
+        self._quiesced.append(server_id)
+        raise RuntimeError("quiesce timeout")
+
+    def unquiesce_guest(self, server_id: str) -> None:
+        self._unquiesced.append(server_id)
+
+
+def test_snapshot_unquiesce_on_quiesce_failure(session) -> None:
+    _seed_catalog(session)
+    server, volume = _server(), _volume()
+    gw = _QuiesceFailsGateway(
+        projects=[ProjectInfo(id="pid-1", name="a")],
+        servers={"pid-1": [server]},
+        volumes={"pid-1": [volume]},
+        flavors={"f-1": FlavorInfo(id="f-1", name="m", vcpus=1, ram=1, disk=10,
+                                   ephemeral=0, swap=0, is_public=True)},
+    )
+    service = SnapshotService(gw, _factory)
+    with pytest.raises(RuntimeError):
+        service.snapshot_instance(session, "i-1", SnapshotOptions(require_consistent=True))
+    assert gw._quiesced == ["i-1"]
+    assert gw._unquiesced == ["i-1"]  # teardown her zaman
+
+
+def test_snapshot_links_volume_ref(session) -> None:
+    server, volume = _server(), _volume()
+    gw = _gateway(server, volume)
+    _RecordingProvider.snapshot_calls = []
+    project = Project(keystone_project_id="pid-1", enabled=True)
+    session.add(project)
+    session.flush()
+    session.add(Instance(instance_uuid="i-1", project_id=project.id))
+    session.flush()
+    inst = session.scalar(select(Instance).where(Instance.instance_uuid == "i-1"))
+    session.add(VolumeRef(instance_id=inst.id, volume_uuid="v-root", boot_index=0,
+                          size_gb=10, volume_type="ssd", backend="rbd", pool="pool-a"))
+    session.commit()
+    result = SnapshotService(gw, _factory).snapshot_instance(
+        session, "i-1", SnapshotOptions(require_consistent=False)
+    )
+    vb = session.scalar(select(VolumeBackup).where(
+        VolumeBackup.restore_point_id == result.restore_point_id))
+    assert vb is not None and vb.volume_ref_id is not None
+
+
 def test_snapshot_preflight_missing_instance(session) -> None:
     gw = FakeGateway(projects=[ProjectInfo(id="pid-1", name="a")], servers={"pid-1": []})
     service = SnapshotService(gw, _factory)

@@ -99,12 +99,10 @@ class SnapshotService:
                 )
             )
 
-        if options.require_consistent:
-            for _target, _provider in targets:
-                self._gateway.quiesce_guest(server.id)
-
         refs: list[SnapshotRef] = []
         try:
+            if options.require_consistent:
+                self._gateway.quiesce_guest(server.id)
             for target, provider in targets:
                 refs.append(provider.snapshot(target, "bkp-"))
         finally:
@@ -119,7 +117,7 @@ class SnapshotService:
         session.add(restore_point)
         session.flush()
 
-        for (target, provider), ref in zip(targets, refs, strict=False):
+        for (target, provider), ref in zip(targets, refs, strict=True):
             volume_ref = session.scalar(
                 select(VolumeRef).where(
                     VolumeRef.instance_id == instance_row.id,
