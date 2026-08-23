@@ -68,6 +68,14 @@ class SnapshotService:
         server = ctx.data["server"]
         project_id = ctx.data["project_id"]
 
+        instance_row = session.scalar(
+            select(Instance).where(Instance.instance_uuid == server.id)
+        )
+        if instance_row is None:
+            raise SnapshotPreflightFailed(
+                ValidationReport(plan_kind=PlanKind.SNAPSHOT),
+            )
+
         targets: list[tuple[SnapshotTarget, SnapshotProvider]] = []
         for volume in self._gateway.list_volumes(project_id):
             if not any(a.server_id == server.id for a in volume.attachments):
@@ -104,22 +112,20 @@ class SnapshotService:
                 self._gateway.unquiesce_guest(server.id)
 
         manifest = self._manifest_builder.build(project_id, server)
-        restore_point = RestorePoint(kind="snapshot", manifest=manifest, status="active")
+        restore_point = RestorePoint(
+            kind="snapshot", instance_id=instance_row.id, manifest=manifest,
+            status="active",
+        )
         session.add(restore_point)
         session.flush()
 
-        instance_row = session.scalar(
-            select(Instance).where(Instance.instance_uuid == server.id)
-        )
         for (target, provider), ref in zip(targets, refs, strict=False):
-            volume_ref = None
-            if instance_row is not None:
-                volume_ref = session.scalar(
-                    select(VolumeRef).where(
-                        VolumeRef.instance_id == instance_row.id,
-                        VolumeRef.volume_uuid == target.image,
-                    )
+            volume_ref = session.scalar(
+                select(VolumeRef).where(
+                    VolumeRef.instance_id == instance_row.id,
+                    VolumeRef.volume_uuid == target.image,
                 )
+            )
             session.add(
                 VolumeBackup(
                     restore_point_id=restore_point.id,

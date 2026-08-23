@@ -49,9 +49,7 @@ class RestorePoint(Base):
     __tablename__ = "restore_points"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     kind: Mapped[str] = mapped_column(String(16))
-    instance_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("instances.id"), nullable=True
-    )
+    instance_id: Mapped[int] = mapped_column(ForeignKey("instances.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     policy_id: Mapped[Optional[int]] = mapped_column(ForeignKey("policies.id"), nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="active")

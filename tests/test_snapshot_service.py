@@ -2,7 +2,7 @@ import pytest
 from sqlalchemy import select
 
 from osbak.discovery.gateway import FlavorInfo, ProjectInfo, ServerInfo, VolumeAttachment, VolumeInfo
-from osbak.models import Instance, RestorePoint, VolumeBackup, VolumeRef
+from osbak.models import Instance, Project, RestorePoint, VolumeBackup, VolumeRef
 from osbak.providers.base import (
     ProviderCapabilities,
     ProviderUnavailable,
@@ -61,8 +61,17 @@ def _factory(driver: str):
     raise ProviderUnavailable(f"bilinmeyen driver: {driver}")
 
 
+def _seed_catalog(session) -> None:
+    project = Project(keystone_project_id="pid-1", enabled=True)
+    session.add(project)
+    session.flush()
+    session.add(Instance(instance_uuid="i-1", project_id=project.id))
+    session.commit()
+
+
 def test_snapshot_writes_restore_point(session) -> None:
     _RecordingProvider.snapshot_calls = []
+    _seed_catalog(session)
     server, volume = _server(), _volume()
     gw = _gateway(server, volume)
     result = SnapshotService(gw, _factory).snapshot_instance(
@@ -83,6 +92,7 @@ def test_snapshot_writes_restore_point(session) -> None:
 
 def test_snapshot_quiesce_and_teardown(session) -> None:
     _RecordingProvider.snapshot_calls = []
+    _seed_catalog(session)
     server, volume = _server(), _volume()
     gw = _gateway(server, volume)
     SnapshotService(gw, _factory).snapshot_instance(
@@ -93,6 +103,7 @@ def test_snapshot_quiesce_and_teardown(session) -> None:
 
 
 def test_snapshot_quiesce_teardown_on_provider_error(session) -> None:
+    _seed_catalog(session)
     server, volume = _server(), _volume()
     gw = _gateway(server, volume)
 
@@ -118,8 +129,19 @@ def test_snapshot_preflight_missing_instance(session) -> None:
 
 
 def test_snapshot_unknown_driver_fails(session) -> None:
+    _seed_catalog(session)
     server, volume = _server(), _volume()
     gw = _gateway(server, volume)
     service = SnapshotService(gw, lambda driver: (_ for _ in ()).throw(ProviderUnavailable(driver)))
     with pytest.raises(SnapshotPreflightFailed):
         service.snapshot_instance(session, "i-1", SnapshotOptions(require_consistent=False))
+
+
+def test_snapshot_fails_without_catalog_instance(session) -> None:
+    server, volume = _server(), _volume()
+    gw = _gateway(server, volume)
+    _RecordingProvider.snapshot_calls = []
+    service = SnapshotService(gw, _factory)
+    with pytest.raises(SnapshotPreflightFailed):
+        service.snapshot_instance(session, "i-1", SnapshotOptions(require_consistent=False))
+    assert _RecordingProvider.snapshot_calls == []  # snapshot hiç yapılmadı
