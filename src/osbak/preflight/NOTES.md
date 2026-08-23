@@ -16,3 +16,9 @@ Tuzaklar:
 - Kapasite/yetkinlik/limit incelemeleri provider milestone'larında gelir
   (CheckKind hazır); resource_delta restore/snapshot milestone'ında dolar.
 - Fallback kuralı: çok-anahtar okuma yok; "instance yok" FAIL'dır, istisna değil.
+- `only` boş/uygunsuz sonuç üretebilir: `validate(BACKUP, only=["snapshot_only"])` → 0 sonuç ama
+  `passed=True` (vacuously green). Apply öncesi yeniden-doğrulama bunu kullanmadan önce
+  semantik kararlaştırılmalı (bilinmeyen ad → hata, veya boş rapor → pass değil).
+- `only=["instance_durum"]` yalnız başına `ctx.data["server"]`'ı okur — taze ctx'te spurious
+  FAIL üretir. Apply aynı plan-zamanı ctx'ini yeniden kullanmalı (veya durum check'i kendini
+  fetch etmeli).

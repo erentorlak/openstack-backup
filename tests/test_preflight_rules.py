@@ -1,4 +1,5 @@
 import openstack
+import pytest
 
 from osbak.preflight.context import PreflightContext
 from osbak.preflight.engine import ValidationEngine
@@ -16,6 +17,11 @@ class _SdkErrorGateway:
         return []
 
 
+class _BoomGateway:
+    def list_projects(self):
+        raise RuntimeError("boom")
+
+
 def test_keystone_erisim_pass() -> None:
     ctx = PreflightContext(
         plan_kind=PlanKind.SNAPSHOT,
@@ -30,6 +36,12 @@ def test_keystone_erisim_fail_on_sdk_error() -> None:
     ctx = PreflightContext(plan_kind=PlanKind.SNAPSHOT, gateway=_SdkErrorGateway())
     report = ValidationEngine().validate(PlanKind.SNAPSHOT, ctx, only=["keystone_erisim"])
     assert report.results[0].status is CheckStatus.FAIL
+
+
+def test_non_sdk_exception_propagates() -> None:
+    ctx = PreflightContext(plan_kind=PlanKind.SNAPSHOT, gateway=_BoomGateway())
+    with pytest.raises(RuntimeError):
+        ValidationEngine().validate(PlanKind.SNAPSHOT, ctx, only=["keystone_erisim"])
 
 
 def test_instance_mevcut_pass_and_data() -> None:

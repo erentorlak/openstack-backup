@@ -19,10 +19,11 @@ _REGISTRY: dict[tuple[PlanKind, str], type[Check]] = {}
 
 
 def register_check(cls: type[Check]) -> type[Check]:
-    for plan_kind in cls.applies_to:
-        key = (plan_kind, cls.name)
+    keys = [(plan_kind, cls.name) for plan_kind in cls.applies_to]
+    for key in keys:
         if key in _REGISTRY:
-            raise ValueError(f"duplicate check registration: {plan_kind.value}/{cls.name}")
+            raise ValueError(f"duplicate check registration: {key[0].value}/{key[1]}")
+    for key in keys:
         _REGISTRY[key] = cls
     return cls
 

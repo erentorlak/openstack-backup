@@ -1,7 +1,7 @@
 import pytest
 
 from osbak.preflight.context import PreflightContext
-from osbak.preflight.engine import Check, ValidationEngine, register_check
+from osbak.preflight.engine import Check, ValidationEngine, checks_for, register_check
 from osbak.preflight.model import CheckKind, CheckResult, CheckStatus, PlanKind
 from tests.fake_gateway import FakeGateway
 
@@ -53,3 +53,18 @@ def test_duplicate_registration_raises() -> None:
         @register_check
         class Duplicate(AlwaysPass):
             name = "always_pass"
+
+
+def test_duplicate_registration_is_atomic() -> None:
+    with pytest.raises(ValueError):
+
+        @register_check
+        class PartialProbe(Check):
+            kind = CheckKind.ERISIM
+            name = "snapshot_only"
+            applies_to = frozenset({PlanKind.RESTORE, PlanKind.SNAPSHOT})
+
+            def run(self, ctx: PreflightContext) -> CheckResult:
+                return CheckResult(self.name, self.kind, CheckStatus.PASS, "ok")
+
+    assert not any(c.name == "snapshot_only" for c in checks_for(PlanKind.RESTORE))
