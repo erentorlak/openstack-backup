@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from osbak.discovery.gateway import OpenstackGateway, parse_host
-from osbak.models import Instance, Project, VolumeRef
+from osbak.models import Instance, Project, VolumeRef, _utcnow
 
 
 @dataclass(frozen=True)
@@ -70,6 +70,8 @@ class DiscoveryService:
             row = Instance(instance_uuid=server.id, project_id=project.id)
             session.add(row)
             session.flush()
+        else:
+            row.last_seen_at = _utcnow()
         return row
 
     def _get_or_create_volume_ref(self, session: Session, instance: Instance, info) -> VolumeRef:
@@ -93,7 +95,9 @@ class DiscoveryService:
             session.add(row)
             session.flush()
         else:
+            row.boot_index = 0 if info.bootable else -1
             row.size_gb = info.size
+            row.volume_type = info.volume_type or None
             row.backend = host.driver
             row.pool = host.pool
         return row

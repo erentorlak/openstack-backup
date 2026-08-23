@@ -1,3 +1,5 @@
+import time
+
 from sqlalchemy import select
 
 from osbak.discovery.gateway import ProjectInfo, ServerInfo, VolumeAttachment, VolumeInfo
@@ -70,3 +72,44 @@ def test_refresh_is_idempotent(session) -> None:
     assert first == second
     assert len(session.scalars(select(Instance)).all()) == 1
     assert len(session.scalars(select(VolumeRef)).all()) == 2
+
+
+def test_refresh_updates_volume_ref_and_last_seen(session) -> None:
+    gateway = _fake_gateway()
+    service = DiscoveryService(gateway)
+    service.refresh(session, project_ids=["pid-1"])
+
+    instance = session.scalar(select(Instance).where(Instance.instance_uuid == "i-1"))
+    assert instance is not None
+    assert instance.last_seen_at is not None
+    first_seen = instance.last_seen_at
+
+    gateway._volumes["pid-1"] = [
+        VolumeInfo(
+            id="v-root",
+            name="root",
+            size=40,
+            volume_type="ret2",
+            status="in-use",
+            bootable=False,
+            host="node1@rbd-1#pool-a",
+            project_id="pid-1",
+            attachments=(VolumeAttachment(server_id="i-1", device="/dev/vda",
+                                          attachment_id="a-1", volume_id="v-root"),),
+        ),
+        gateway._volumes["pid-1"][1],
+    ]
+
+    time.sleep(0.01)
+    service.refresh(session, project_ids=["pid-1"])
+
+    ref = session.scalar(select(VolumeRef).where(VolumeRef.volume_uuid == "v-root"))
+    assert ref is not None
+    assert ref.boot_index == -1
+    assert ref.volume_type == "ret2"
+    assert ref.size_gb == 40
+
+    second_seen = session.scalar(
+        select(Instance).where(Instance.instance_uuid == "i-1")
+    ).last_seen_at
+    assert second_seen.replace(tzinfo=None) > first_seen.replace(tzinfo=None)

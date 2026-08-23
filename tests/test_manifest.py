@@ -73,3 +73,13 @@ def test_manifest_flavor_none_when_missing() -> None:
     gateway._flavors.clear()
     server = gateway.list_servers("pid-1")[0]
     assert ManifestBuilder(gateway).build("pid-1", server)["flavor"] is None
+
+
+def test_manifest_top_level_keys_pinned() -> None:
+    gateway = _fake_gateway()
+    server = gateway.list_servers("pid-1")[0]
+    manifest = ManifestBuilder(gateway).build("pid-1", server)
+    assert set(manifest.keys()) == {
+        "schema_version", "captured_at", "project_id", "instance", "flavor",
+        "block_device_mapping", "network", "security_groups", "server_groups",
+    }

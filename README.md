@@ -14,9 +14,11 @@ Skyline'a sonradan bağlanabilir.
 
 ## Durum
 
-Tasarım aşamasında. Kod başlangıcı öncesinde mimari dokümanlar
-(`docs/`) üzerinde çalışılıyor. Bu repo yalnızca LLM'ler tarafından
-geliştirilecektir — her katman LLM için dokümante edilmiş olmalı.
+Milestone 1 tamamlandı: inventory taraması (katalog) ve manifest üretimi CLI
+üzerinden çalışır durumda (`osbak inventory-refresh`, `osbak manifest-show`).
+Kalan milestone'lar (snapshot/alma, restore, S3, yönetim arayüzü) bekliyor.
+Bu repo yalnızca LLM'ler tarafından geliştirilecektir — her katman LLM için
+dokümante edilmiş olmalı.
 
 ## Kısayollar
 
