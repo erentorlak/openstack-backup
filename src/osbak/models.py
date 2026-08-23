@@ -103,8 +103,12 @@ class Job(Base):
     policy_id: Mapped[Optional[int]] = mapped_column(ForeignKey("policies.id"), nullable=True)
     state: Mapped[str] = mapped_column(String(32))
     dry_run: Mapped[bool] = mapped_column(default=False)
-    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    started_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    finished_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     error: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
 
 
@@ -117,5 +121,7 @@ class RestoreOp(Base):
     mapping: Mapped[dict[str, Any]] = mapped_column(JSON)
     created_by: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-    finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    finished_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     error: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
