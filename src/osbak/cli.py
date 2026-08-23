@@ -40,8 +40,18 @@ def _build_connection(settings: Settings):
 def _apply_project_filter(gateway, project_names: list[str]) -> list[str] | None:
     if not project_names:
         return None
-    ids = {p.name: p.id for p in gateway.list_projects()}
-    return [ids[name] for name in project_names if name in ids]
+    seen: dict[str, str] = {}
+    for name in project_names:
+        if name in seen:
+            raise click.ClickException(f"duplicate project name in config: {name}")
+        seen[name] = ""
+    by_name: dict[str, str] = {p.name: p.id for p in gateway.list_projects()}
+    missing = [name for name in project_names if name not in by_name]
+    if missing:
+        raise click.ClickException(
+            f"configured project(s) not found: {', '.join(missing)}"
+        )
+    return [by_name[name] for name in project_names]
 
 
 @main.command("inventory-refresh")
