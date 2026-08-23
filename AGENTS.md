@@ -53,7 +53,18 @@ Bunlar repo'nun yerçekimi; kod bunların üzerine kurulur:
 - Skyline'da runtime üçüncü-parti plugin API'si yok → standalone web app +
   Keystone auth (backend-held token); Skyline entegrasyonu sonradan.
 - Provider'lar opsiyoneldir: NetApp'sız kurulum netapp kodu import etmeden
-  çalışır (`pip install osbak[netapp]` gibi).
+  çalışır (`pip install osbak[netapp]` gibi). En az bir storage provider gerekli.
+
+Aşağıdaki şartlar da tasarım sınırıdır (spec'te gerekçeleri var):
+
+- Restore'un anlamı **instance'ın kimlik/ağ/güvenlik metadata'sıyla ayağa
+  kalkması**dır — yalnızca volume geri getirme değil. Manifest bu yüzden saklanır.
+- Manifest kopyası her restore point için (SNAPSHOT/T0-only dahil) yazılır:
+  katalog kaybı ≠ backup kaybı.
+- Zamanlama ve retention config/UI'dan değiştirilir; uzun dönem (T2) S3 Object
+  Lock ile immutable'dır.
+- `plan → validate → apply` ayrımı hem API'de hem kodda ihlal edilmez; sessiz
+  alternatif yol yoktur.
 
 ## Konvansiyon
 
@@ -67,6 +78,8 @@ Bunlar repo'nun yerçekimi; kod bunların üzerine kurulur:
 
 ## Nereden başla
 
+- `docs/specs/2026-08-23-osbak-architecture.md` — davranışın tek doğruluk kaynağı (spec)
+- `docs/adr/ADR-001-rollback-strategies.md` — restore/rollback kararı
 - `docs/discipline.md` — çalışma disiplini protokolü (döngü, subagent, doğrulama, git)
 - `README.md` — proje özeti ve durum
-- `docs/` — mimari, ADR'ler, LLM notları (dolduruluyor)
+- `docs/` — diğer ADR'ler ve LLM notları

@@ -21,4 +21,6 @@ geliştirilecektir — her katman LLM için dokümante edilmiş olmalı.
 ## Kısayollar
 
 - `AGENTS.md` — repo kuralları ve LLM geliştirme konvansiyonları
-- `docs/` — mimari, kararlar (ADR), tasarım notları
+- `docs/specs/2026-08-23-osbak-architecture.md` — mimari spec (tek doğruluk kaynağı)
+- `docs/adr/` — karar kayıtları (ADR-001: rollback stratejileri)
+- `docs/discipline.md` — çalışma disiplini protokolü
