@@ -23,7 +23,11 @@ Tuzaklar:
 - Remote grup referansı: 2-geçiş — kural `remote_group_id` (eski id) planner'da `.remote_group_name`'e çevrilir, executor yeni id'ye çözer; bilinmeyen id → RestorePlanError (sessiz skip YOK).
 - AZ asimetrisi (bilinçli, provider milestone'a): create_volume yalnız options.availability_zone kullanır; create_server instance.availability_zone'a düşer — real manifest'te volume farklı AZ'a düşebilir.
 - Sessiz SG skip portta: manifest security_group listesinde olmayan port SG'si düşer (builder wanted_sg_ids invariant'ı sayesinde bugün ulaşılamaz); provider milestone'da plan-time RestorePlanError önerilir.
-- boot_index: builder data volumeleri -1 (root 0) verir → ascending sort volume_keys'i -1 önce getirir; gerçek Nova BDM sıralaması provider milestone'da doğrulanacak.
+- boot_index: builder data volumeleri -1 (root 0) verir. Planner `_order_bdm` ile
+  boot=0 ONDE, -1 sonra siralar (create_volume step sirasi + volume_keys ikisi de ayni
+  helper); ascending `sorted(boot_index)` hataliydi (-1 once gelir, fix: review bulgusu).
+  Rebuild'de Nova bana BDM sirasini isletirken hangi volume'un boot oldugunu plan'tan boot=0
+  + uygun key ile bilinir (provider milestone'da canli dogrulanacak).
 - Restore edilen volumeler BOŞ: executor source_snapshot=None geçer; chunk-veri maddileştirme (T1 store) henüz bağlı DEĞİL — canlı restore veri yoludur, provider milestone'da gelir.
 - server_groups ve floating IP: spec §8 rebuild sırasında yer alır ama bu planın step kontratı DIŞI (bilinçli); manifest server_groups alanı şu an adımsız düşer.
 - JSON kalıcılığı: INSERT'te op.mapping'e `copy.deepcopy(mapping)` yazılır — `dict(mapping)` SİĞ kopya (iç dict'ler paylaşılır) olduğundan FAILED yarım mapping'i (yalnız iç değişim) SQLAlchemy'nin JSON değer-eşitliği karşılaştırmasında "değişmedi" sayılıp UPDATE'ten düşerdi; DONE genelde dış anahtar eklemesi (flavor/server) yüzünden fark edilmezdi. Bitişte `op.mapping = dict(mapping)` yeterli.
