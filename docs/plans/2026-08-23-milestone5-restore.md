@@ -422,7 +422,7 @@ git commit -m "feat: RestoreGateway mutation protocol, FakeRestoreGateway"
 
 **Üretilecek adımlar (seq sırasıyla):**
 1. Her SG için `ensure_security_group_shell` — key `sg:{name}`, payload `{name,description,project_id}`; **tümü** tek geçişte (önce bütün kabuklar).
-2. Sonra her SG için `add_security_group_rules` — key `sg_rules:{name}`, payload `{security_group_key: "sg:{name}", rules}` (2-geçiş: kurallar başka kabuğun id'sine atıf yapabildiği için).
+2. Sonra her SG için `add_security_group_rules` — key `sg_rules:{name}`, payload `{security_group_key: "sg:{name}", rules}`. `rules` kopyalanır (sığ kopya) ve `remote_group_id` (eski id) `remote_group_name`'e çevrilir: id `sg_id_to_name`'de bulunursa `remote_group_id` silinir, `remote_group_name` eklenir; bulunamazsa `RestorePlanError("bilinmeyen uzak grup: <id>")` (sessiz skip YOK — fallback kuralı). `remote_ip_prefix`'li (null `remote_group_id`) kurallar dokunulmadan geçer (2-geçiş: kurallar başka kabuğun adına atıf yapabildiği, executor yeni id'yi adla çözdüğü için).
 3. Her bdm için `create_volume` — key `vol:{volume_id}`, boot_index'e göre sıralı, payload `{name,size_gb,volume_type,availability_zone}`.
 4. Her port için `create_port` — key `port:{port_id}`, payload `{network_id,mac_address,fixed_ip,security_group_names,allowed_address_pairs,project_id}`. `fixed_ip` = port.fixed_ips[0].ip_address **yalnızca `options.keep_ip=True` ise** (kesilirse None → Neutron atar). `security_group_names` = manifest SG id→name eşlemesiyle çözülür (yeni id'leri executor bilir).
 5. `find_or_create_flavor` — key `flavor`, payload `{name,vcpus,ram_mb,disk_gb,ephemeral_gb,swap_mb,extra_specs}`.
@@ -566,10 +566,21 @@ class RestorePlanner:
             seq += 1
 
         for sg in manifest["security_groups"]:
+            translated_rules = []
+            for rule in sg["rules"]:
+                r = dict(rule)
+                rgid = r.get("remote_group_id")
+                if rgid:
+                    name = sg_id_to_name.get(rgid)
+                    if name is None:
+                        raise RestorePlanError(f"bilinmeyen uzak grup: {rgid}")
+                    del r["remote_group_id"]
+                    r["remote_group_name"] = name
+                translated_rules.append(r)
             steps.append(PlanStep(
                 seq=seq, action="add_security_group_rules",
                 key=f"sg_rules:{sg['name']}",
-                payload={"security_group_key": f"sg:{sg['name']}", "rules": sg["rules"]},
+                payload={"security_group_key": f"sg:{sg['name']}", "rules": translated_rules},
             ))
             seq += 1
 
@@ -681,15 +692,15 @@ git commit -m "feat: RestorePlanner manifest->RebuildPlan (saf plan)"
 
 **Yürütme:** adımlar `seq` sırasıyla; her adımda:
 - `ensure_security_group_shell` → `gateway.ensure_security_group` → çekirdek `security_groups[name]=id`.
-- `add_security_group_rules` → `security_group_id` çekirdekten (`payload["security_group_key"]` ile) çözülür → `gateway.add_security_group_rules(id, rules)`.
+- `add_security_group_rules` → her kuralın `remote_group_name`'i `mapping["security_groups"][ad]` ile yeni id'ye çözülür, `remote_group_name` anahtarı düşer, `remote_group_id` koyulur (planner en azından tüm SG kabuklarını önceden işler, bu yüzden ad her zaman map'te); `security_group_id` çekirdekten (`payload["security_group_key"]` ile) çözülür → `gateway.add_security_group_rules(id, translated_rules)`.
 - `create_volume` → `gateway.create_volume` → `volumes[payload["name"]]=id` ve eski id `key.split(":")[1]`.
 - `create_port` → `gateway.create_port` (security_group_ids payload adlarından çözülür) → `ports[eski_port_id]=id`.
 - `find_or_create_flavor` → `flavor=id`.
 - `create_server` → `gateway.create_server` (volume_ids/port_ids/flavor_id/sg ids payload key'lerinden çözülür) → `server=id`.
 
-**Hata yakalama:** yalnızca `gateway` çağrısını saran dar `except` (geniş `except Exception` YOK — fallback kuralı). RestoreOp FAILED + yeniden `raise RestorePlanError`. Session değişikliklerinde `session.commit()`; hata yolunda `session.rollback(); raise`.
+**Hata yakalama:** adım döngüsü TEK teardown+re-raise `except Exception` ile sarmalanır. TÜM hatalar — gateway RuntimeError'ları ve bilinmeyen adım dahil `RestorePlanError`'lar — aynı handler'a düşer: `op.mapping = dict(mapping); state=FAILED; error; finished_at; session.commit()` sonra `raise RestorePlanError(str(exc)) from exc`. Rollback YOK (FAILED, kısmi mapping ile commit edilerek kaydedilir).
 
-**`except Exception` notu (kasıtlı, izinli):** Executor, adım döngüsünü tek bir `except Exception` ile sarmalar (Teardown+re-raise). Bu AGENTS.md'de izinli kalıptır: rollback → state=FAILED + error → `raise RestorePlanError from exc`. Yani senaryo belirsizliğinde "başka yol dene" değildir; aksine **deterministik hata sonlandırmasıdır** (devlet makinesi FAILED'e geçer, mapping korunur). Ayrıca RESTORE_AGENT subagent'ların bu notu dikkate alıp executor'ı değiştirmemesi için koda `# noqa: BLE001` koyulur.
+**`except Exception` notu (kasıtlı, izinli):** Tek handler `RestorePlanError`'ı da yakalar (eski `except RestorePlanError: raise` passthrough'u KALDIRILDI — bilinmeyen adım senaryosu `RestorePlanError("bilinmeyen adim: ...")` üretir ve bu da FAILED kaydı yaşamadan geçip EXECUTING'de kalakalırdı; spec §15 FAILED ister). Bu AGENTS.md'de izinli kalıptır: state=FAILED + error + commit → `raise RestorePlanError from exc`. Yani senaryo belirsizliğinde "başka yol dene" değildir; aksine **deterministik hata sonlandırmasıdır** (devlet makinesi FAILED'e geçer, kısmi mapping korunur). Ayrıca RESTORE_AGENT subagent'ların bu notu dikkate alıp executor'ı değiştirmemesi için koda `# noqa: BLE001` koyulur.
 
 - [ ] **Step 1: Failing test**
 
@@ -765,6 +776,7 @@ def test_execute_failure_marks_failed_and_raises(session) -> None:
 ```python
 from __future__ import annotations
 
+import copy
 from datetime import datetime, timezone
 from typing import Any
 
@@ -786,13 +798,16 @@ class RebuildExecutor:
 
     def execute(self, plan: RestorePlan, created_by: str | None = None) -> dict[str, Any]:
         # NOT: JSON kolona AYNI NESNE ICI mutasyon izlenmez (MutableDict yok).
-        # mapping lokal dict olarak kurulur, bitiste op.mapping'e YENI nesne atanir.
+        # mapping lokal dict olarak kurulur; INSERT aninda SNAPSHOT olarak
+        # deepcopy yazilir (dict() sıg kopyasi ic dict'leri paylasirdi, JSON
+        # kolonun deger-esitligi karsilastirmasi FAILED yarim mapping'ini
+        # silerdi), bitiste op.mapping'e YENI nesne atanir.
         mapping: dict[str, Any] = {"volumes": {}, "ports": {}, "security_groups": {}}
         op = RestoreOp(
             restore_point_id=plan.restore_point_id,
             strategy=plan.strategy.value,
             state="EXECUTING",
-            mapping=mapping,
+            mapping=copy.deepcopy(mapping),
             created_by=created_by,
         )
         self._session.add(op)
@@ -810,7 +825,15 @@ class RebuildExecutor:
                     mapping["security_groups"][payload["name"]] = sid
                 elif step.action == "add_security_group_rules":
                     sg_key = payload["security_group_key"]
-                    self._gateway.add_security_group_rules(resolved[sg_key], payload["rules"])
+                    translated_rules = []
+                    for rule in payload["rules"]:
+                        r = dict(rule)
+                        if "remote_group_name" in r:
+                            r["remote_group_id"] = mapping["security_groups"][
+                                r.pop("remote_group_name")
+                            ]
+                        translated_rules.append(r)
+                    self._gateway.add_security_group_rules(resolved[sg_key], translated_rules)
                 elif step.action == "create_volume":
                     vid = self._gateway.create_volume(
                         payload["name"], payload["size_gb"], payload["volume_type"],
@@ -848,17 +871,15 @@ class RebuildExecutor:
                     mapping["server"] = sid
                 else:
                     raise RestorePlanError(f"bilinmeyen adim: {step.action}")
-        except RestorePlanError:
-            raise
         except Exception as exc:  # noqa: BLE001 - teardown+re-raise (AGENTS izinli kalip)
-            op.mapping = mapping
+            op.mapping = dict(mapping)
             op.state = "FAILED"
             op.error = str(exc)
             op.finished_at = _utcnow()
             self._session.commit()
             raise RestorePlanError(str(exc)) from exc
 
-        op.mapping = mapping
+        op.mapping = dict(mapping)
         op.state = "DONE"
         op.finished_at = _utcnow()
         self._session.commit()
@@ -932,5 +953,5 @@ git commit -m "docs: Plan 5 NOTES ve dogrulama"
 - manifest kontratı `builder.py`'daki gerçek anahtar adlarıyla birebir (doğrulandı: `block_device_mapping[]volume_id/size/volume_type/boot_index`, `network.ports[]network_id/mac_address/fixed_ips/security_group_ids/allowed_address_pairs`, `security_groups[]id/name/description/rules`, `flavor{}name/vcpus/ram/disk/ephemeral/swap/extra_specs`, `instance{}name/project_id/key_name/config_drive/availability_zone/metadata/tags`).
 - `RestoreOp` gerçek kolonlarıyla eşleşir (`strategy/state/mapping/created_by/created_at/finished_at/error`).
 - TDD kuralına uygun (önce test → kırmızı → implement → yeşil → commit).
-- Fallback kuralına uygun: yalnızca `except RestorePlanError: raise` + tek teardown+re-raise `except Exception` (Task 4 notu — FAILED sonlandırma); sessiz alternatif yol YOK. Bu planda unquiesce benzeri teardown adımı yok.
+- Fallback kuralına uygun: tek teardown+re-raise `except Exception` — `RestorePlanError` (bilinmeyen adım) dahil TÜM hatalar tek handler'da FAILED sonlandırma yaşar (Task 4 notu); sessiz alternatif yol YOK. Bu planda unquiesce benzeri teardown adımı yok.
 - **JSON kalıcılığı (düzeltildi):** `RestoreOp.mapping` plain JSON kolon (MutableDict yok) → executor mapping'i lokal dict olarak kurar, bitişte `op.mapping = mapping` (yeni nesne ataması) yapar — aynı nesne içi mutasyon SQLAlchemy tarafından izlenmezdi.
