@@ -121,6 +121,8 @@ class RestoreOp(Base):
     strategy: Mapped[str] = mapped_column(String(16))
     state: Mapped[str] = mapped_column(String(32))
     mapping: Mapped[dict[str, Any]] = mapped_column(JSON)
+    plan: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    options: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, nullable=True)
     created_by: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     finished_at: Mapped[Optional[datetime]] = mapped_column(
