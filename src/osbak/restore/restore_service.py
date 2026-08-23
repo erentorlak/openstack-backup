@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Callable
 
 from osbak.discovery.gateway import OpenstackGateway
@@ -19,6 +20,10 @@ from osbak.restore.model import (
     plan_to_dict,
 )
 from osbak.restore.planner import RestorePlanner
+
+
+def _utcnow():
+    return datetime.now(timezone.utc)
 
 
 class RestorePreflightFailed(Exception):
@@ -90,7 +95,7 @@ class RestoreService:
         if point is None:
             op.state = "FAILED"
             op.error = "restore point silinmis"
-            op.finished_at = self._utcnow()
+            op.finished_at = _utcnow()
             self._session.commit()
             raise RestorePlanError("restore point silinmis — yeniden plan")
 
@@ -107,14 +112,22 @@ class RestoreService:
             op.error = "preflight: " + "; ".join(
                 f"{r.name}/{r.status.value}" for r in report.results
             )
-            op.finished_at = self._utcnow()
+            op.finished_at = _utcnow()
             self._session.commit()
             raise RestorePreflightFailed(report)
 
         op.state = "PREFLIGHT_PASS"
         self._session.commit()
 
-        rplan = plan_from_dict(op.plan)
+        try:
+            rplan = plan_from_dict(op.plan)
+        except (KeyError, TypeError, ValueError) as exc:
+            op.state = "FAILED"
+            op.error = "plan verisi bozuk — yeniden plan"
+            op.finished_at = _utcnow()
+            self._session.commit()
+            raise RestorePlanError("plan verisi bozuk — yeniden plan") from exc
+
         mapping = RebuildExecutor(
             self._restore_gateway_factory(), self._session
         ).execute(op, rplan)
@@ -129,9 +142,3 @@ class RestoreService:
         if op is None:
             raise RestorePlanError(f"restore op yok: {restore_op_id}")
         return op
-
-    @staticmethod
-    def _utcnow():
-        from datetime import datetime, timezone
-
-        return datetime.now(timezone.utc)

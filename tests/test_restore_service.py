@@ -123,6 +123,67 @@ def test_apply_rejects_non_planned(session) -> None:
         assert "yeniden plan" in str(exc)
 
 
+def test_apply_rejects_deleted_point(session) -> None:
+    manifest = make_manifest()
+    point = _seed_point(session, manifest)
+    svc = _service(session)
+    op_id = svc.plan(point.id, RestoreOptions(strategy=RestoreStrategy.REBUILD))
+    session.delete(point)
+    session.commit()
+    try:
+        svc.apply(op_id)
+        assert False
+    except RestorePlanError as exc:
+        assert "yeniden plan" in str(exc)
+    op = session.get(RestoreOp, op_id)
+    assert op.state == "FAILED"
+    assert op.error == "restore point silinmis"
+    assert op.finished_at is not None
+
+
+def test_apply_rejects_missing_op(session) -> None:
+    svc = _service(session)
+    try:
+        svc.apply(999)
+        assert False
+    except RestorePlanError as exc:
+        assert "restore op yok" in str(exc)
+
+
+def test_apply_requires_gateway(session) -> None:
+    manifest = make_manifest()
+    point = _seed_point(session, manifest)
+    svc = _service(session)
+    op_id = svc.plan(point.id, RestoreOptions(strategy=RestoreStrategy.REBUILD))
+    svc = RestoreService(session, None, lambda: FakeRestoreGateway())
+    try:
+        svc.apply(op_id)
+        assert False
+    except RestorePlanError as exc:
+        assert "gateway gerekli" in str(exc)
+    op = session.get(RestoreOp, op_id)
+    assert op.state == "PLANNED"
+
+
+def test_apply_corrupt_plan_marks_failed(session) -> None:
+    manifest = make_manifest()
+    point = _seed_point(session, manifest)
+    svc = _service(session)
+    op_id = svc.plan(point.id, RestoreOptions(strategy=RestoreStrategy.REBUILD))
+    op = session.get(RestoreOp, op_id)
+    op.plan = {"strategy": "rebuild"}
+    session.commit()
+    try:
+        svc.apply(op_id)
+        assert False
+    except RestorePlanError as exc:
+        assert "plan verisi bozuk" in str(exc)
+    op = session.get(RestoreOp, op_id)
+    assert op.state == "FAILED"
+    assert op.error == "plan verisi bozuk — yeniden plan"
+    assert op.finished_at is not None
+
+
 def test_show_reads_op(session) -> None:
     manifest = make_manifest()
     point = _seed_point(session, manifest)
