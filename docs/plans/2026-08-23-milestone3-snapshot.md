@@ -1,5 +1,8 @@
 # Plan 3: Snapshot Orkestrasyonu (provider + quiesce + restore-point kaydı) — Implementation Plan
 
+> **Durum: TAMAMLANDI** — plan implement edildi, main'e merge edildi (tarihsel
+> kayıt). Kalıcı davranış ve tuzaklar için src/osbak/snapshot/NOTES.md ve README'ye bakın.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** İlk gerçek itoh dizimini inşa et: storage provider soyutlaması (başlangıçta Ceph/RBD), Nova guest quiesce/unquiesce, ve bir instance'ı snapshotlayıp kataloga restore-point + volume_backup olarak kaydeden **orchestrator**. Preflight'ı bu akışa bağla. CLI: `osbak snapshot-take <instance-uuid>`.
@@ -53,7 +56,7 @@ tests/test_snapshot_service.py
   - `SnapshotRef(provider: str, image: str, pool: str, snapshot: str, created_at: str)` — frozen.
   - `SnapshotProvider` Protocol: `name: str`, `capabilities: ProviderCapabilities`, `snapshot(self, target: SnapshotTarget, name_prefix: str) -> SnapshotRef`, `delete(self, ref: SnapshotRef) -> None`.
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 `tests/test_providers_base.py`:
 ```python
@@ -98,9 +101,9 @@ def test_protocol_is_subscriptable_protocol() -> None:
     assert SnapshotProvider  # isinstance check yerine varlık/type check
 ```
 
-- [ ] **Step 2: Run to fail** — `pytest tests/test_providers_base.py -v` → FAIL (modül yok).
+- [x] **Step 2: Run to fail** — `pytest tests/test_providers_base.py -v` → FAIL (modül yok).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `src/osbak/providers/base.py`:
 ```python
@@ -149,9 +152,9 @@ class SnapshotProvider(Protocol):
     def delete(self, ref: SnapshotRef) -> None: ...
 ```
 
-- [ ] **Step 4: Run to pass** — `pytest tests/test_providers_base.py -v` → PASS.
+- [x] **Step 4: Run to pass** — `pytest tests/test_providers_base.py -v` → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/osbak/providers tests/test_providers_base.py
@@ -178,7 +181,7 @@ git commit -m "feat: provider capabilities model and SnapshotProvider protocol"
     ```
   - `snapshot(target, name_prefix)` ve `delete(ref)` — gerçek rados kod yolu (birim test kapsamı dışı, canlı ortam). İçlerinde `rados = importlib.import_module("rados"); rbd = importlib.import_module("rbd")` (çağrı anında, canlı ortamda kurulu olur). Implementasyon rados.Rados(...)/ioctx/Image.create_snap kullanır; tam komut canlı doğrulamada netleşir, NOTES'a yazılır. `snapshot` yine de deterministik bir `SnapshotRef` döndürmeli (döndürülen snapshot adı `snap_name(target.instance_id, _utc_iso(), 1)`).
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 `tests/test_providers_ceph.py`:
 ```python
@@ -223,9 +226,9 @@ def test_ceph_provider_constructs_if_rados_spec_present(monkeypatch: pytest.Monk
 
 Gerekirse test'ti canlı duruma göre ayarla (ör. `osbak.providers.ceph.rados` monkeypatch): amaç — rados yokken `ProviderUnavailable`, varken kurucu çalışıyor.
 
-- [ ] **Step 2: Run to fail** — `pytest tests/test_providers_ceph.py -v` → FAIL.
+- [x] **Step 2: Run to fail** — `pytest tests/test_providers_ceph.py -v` → FAIL.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `src/osbak/providers/ceph.py`:
 ```python
@@ -284,9 +287,9 @@ class CephProvider:
         return None
 ```
 
-- [ ] **Step 4: Run to pass** — `pytest tests/test_providers_ceph.py -v` → PASS (rados yokken unavailable; test'te monkeypatch ile provider'ın kurulabildiği dal doğrulanır).
+- [x] **Step 4: Run to pass** — `pytest tests/test_providers_ceph.py -v` → PASS (rados yokken unavailable; test'te monkeypatch ile provider'ın kurulabildiği dal doğrulanır).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/osbak/providers/ceph.py tests/test_providers_ceph.py
@@ -309,7 +312,7 @@ git commit -m "feat: CephProvider (rados probe) and snapshot name builder"
   - `SDKGateway` aynı iki yöntem — kurulu openstacksdk kaynağından doğrulama: `conn.compute.quiesce_server`? / `POST /servers/{id}/action {"os-quiesce": {}}`. Implementer SDK kaynağından hangi çağrının doğru olduğunu doğrular; SDK'da hazır metod yoksa raw action çağrısı yazar ve kararı NOTES'a (Task 5) kaydeder. Imza: `quiesce_guest(server_id)` → SDK'ya `os-quiesce` action; `unquiesce_guest(server_id)` → `os-unquiesce`.
   - `FakeGateway`: iki yönteme `self._quiesced: list[str]` ve `self._unquiesced: list[str]` kaydeder.
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 `tests/test_gateway_quiesce.py`:
 ```python
@@ -331,9 +334,9 @@ def test_sdk_gateway_has_quiesce_methods() -> None:
     assert hasattr(SDKGateway, "unquiesce_guest")
 ```
 
-- [ ] **Step 2: Run to fail** — `pytest tests/test_gateway_quiesce.py -v` → FAIL.
+- [x] **Step 2: Run to fail** — `pytest tests/test_gateway_quiesce.py -v` → FAIL.
 
-- [ ] **Step 3: Implement** (gateway.py ve fake_gateway.py'ye ekle)
+- [x] **Step 3: Implement** (gateway.py ve fake_gateway.py'ye ekle)
 
 OpenstackGateway Protocol'e (gateway.py):
 ```python
@@ -382,9 +385,9 @@ FakeGateway'e (tests/fake_gateway.py):
         self._unquiesced.append(server_id)
 ```
 
-- [ ] **Step 4: Run to pass** — `pytest tests/test_gateway_quiesce.py -v` → PASS; tüm suite yeşil (fake_gateway constructor çağrılarına dikkat).
+- [x] **Step 4: Run to pass** — `pytest tests/test_gateway_quiesce.py -v` → PASS; tüm suite yeşil (fake_gateway constructor çağrılarına dikkat).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/osbak/discovery/gateway.py tests/fake_gateway.py tests/test_gateway_quiesce.py
@@ -421,7 +424,7 @@ git commit -m "feat: gateway quiesce/unquiesce guest actions"
 
 Not: `manifest_builder` default `ManifestBuilder(gateway)`; test'te sabit manifest vermek gerekirse builder inject edilir.
 
-- [ ] **Step 0 (ön-koşul tamamlama): `instances.py`'te `project_id` yaz**
+- [x] **Step 0 (ön-koşul tamamlama): `instances.py`'te `project_id` yaz**
 
 `src/osbak/preflight/rules/instances.py` — `InstanceMevcut.run` içinde `if server.id == uuid:` bloğu şu hale getir:
 ```python
@@ -444,7 +447,7 @@ def test_instance_mevcut_populates_ctx() -> None:
 ```
 Doğrulama: `pytest tests/test_preflight_rules.py -v` → PASS.
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 `tests/test_snapshot_service.py`:
 ```python
@@ -575,9 +578,9 @@ def test_snapshot_unknown_driver_fails(session) -> None:
         service.snapshot_instance(session, "i-1", SnapshotOptions(require_consistent=False))
 ```
 
-- [ ] **Step 2: Run to fail** — `pytest tests/test_snapshot_service.py -v` → FAIL.
+- [x] **Step 2: Run to fail** — `pytest tests/test_snapshot_service.py -v` → FAIL.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `src/osbak/snapshot/service.py`:
 ```python
@@ -717,9 +720,9 @@ class SnapshotService:
         )
 ```
 
-- [ ] **Step 4: Run to pass** — `pytest tests/test_snapshot_service.py -v` → PASS; tüm suite yeşil (fake_gateway `_quiesced`/`_unquiesced` Task 3'te).
+- [x] **Step 4: Run to pass** — `pytest tests/test_snapshot_service.py -v` → PASS; tüm suite yeşil (fake_gateway `_quiesced`/`_unquiesced` Task 3'te).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/osbak/snapshot tests/test_snapshot_service.py
@@ -740,7 +743,7 @@ git commit -m "feat: SnapshotService orchestrator (preflight, quiesce, restore-p
 - Consumes: `Settings`, `SDKGateway`, `CephProvider`, `SnapshotService`/`SnapshotOptions`, DB helpers.
 - Produces: CLI komutu `snapshot-take INSTANCE_UUID [--consistent]`; `_provider_factory` driver adı "rbd" içeriyorsa `CephProvider()` (rados yoksa ProviderUnavailable → komut hata basar, CLI kullanıcıya açık), diğer driver'lar için `ProviderUnavailable`.
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 `tests/test_cli.py` — `snapshot-take` için:
 ```python
@@ -774,9 +777,9 @@ def test_snapshot_take_wires_options(monkeypatch, tmp_path) -> None:
     assert "restore_point=7" in result.output
 ```
 
-- [ ] **Step 2: Run to fail** — `pytest tests/test_cli.py -v` → FAIL (komut yok).
+- [x] **Step 2: Run to fail** — `pytest tests/test_cli.py -v` → FAIL (komut yok).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `src/osbak/cli.py` — en üste (mevcut import'lara ekle):
 ```python
@@ -817,7 +820,7 @@ def snapshot_take(ctx: click.Context, instance_uuid: str, consistent: bool) -> N
         engine.dispose()
 ```
 
-- [ ] **Step 4: Run to pass** — `pytest tests/test_cli.py -v` → PASS; tüm suite yeşil.
+- [x] **Step 4: Run to pass** — `pytest tests/test_cli.py -v` → PASS; tüm suite yeşil.
 
 `src/osbak/snapshot/NOTES.md`:
 ```markdown
@@ -857,7 +860,7 @@ Tuzaklar:
 - Yeni provider = yeni modül + capabilities + CLI factory wiring.
 ```
 
-- [ ] **Step 5: Final suite + commit**
+- [x] **Step 5: Final suite + commit**
 
 ```bash
 pytest -v   # tümü PASS

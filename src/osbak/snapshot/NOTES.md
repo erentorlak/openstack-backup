@@ -6,8 +6,8 @@ Neden:
 - Preflight (keystone/instance/durum) önce; `SnapshotPreflightFailed` geçmezse yükselir.
 - Volume pool yalnız `os-vol-host-attr:host` (`host@driver#pool`) → pool None durumu
   deterministik hata (atlama yok).
-- Quiesce: `require_consistent` ise batch freeze; unquiesce HER ZAMAN (finally —
-  zorunlu teardown, fallback değil). `allow_crash` ise quiesce yok.
+- Quiesce: `require_consistent=True` ise batch freeze; unquiesce HER ZAMAN (finally —
+  zorunlu teardown, fallback değil). `require_consistent=False` ise guest freeze YOK.
 - Restore-point manifest'i ManifestBuilder çıktısı; objek-store kopyası T1'de (Plan 4).
 - Kismi sizinti YOK: quiesce sonrasi HER hata (snapshot dongusu, manifest build ya da
   DB flush/commit) olusturulmus ref'leri best-effort `provider.delete(ref)` ile siler,

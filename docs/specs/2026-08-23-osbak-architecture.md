@@ -1,8 +1,8 @@
 # osbak — Mimari Spec
 
 - Tarih: 2026-08-23
-- Durum: **Taslak (onay bekliyor)**
-- Karar kayıtları: `docs/adr/ADR-001-rollback-strategies.md`
+- Durum: **Kabul edildi (tek doğruluk kaynağı — AGENTS.md zorunlu kılar)**
+- Karar kayıtları: `docs/adr/ADR-001-rollback-strategies.md`, `docs/adr/ADR-002-manifest-lock-tz.md`
 
 Bu belge, osbak uygulamasının tek doğruluk kaynağıdır. Önceki sohbet ve
 araştırma bulguları buraya damıtılmıştır; diğer dokümanlar buraya işaret eder.

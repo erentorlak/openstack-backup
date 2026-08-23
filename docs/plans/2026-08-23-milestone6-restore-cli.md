@@ -1,5 +1,8 @@
 # Plan 6: Restore CLI + servis katmanı (iki fazlı plan-apply, kalıcı plan) — Implementation Plan
 
+> **Durum: TAMAMLANDI** — plan implement edildi, main'e merge edildi (tarihsel
+> kayıt). Kalıcı davranış ve tuzaklar için src/osbak/restore/NOTES.md ve README'ye bakın.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Restore'u komut satırından kullanılabilir kıl: iki fazlı ve kalıcı plan. `osbak restore plan <restore-point-id>` manifest'ten `RestorePlan` üretir, adımları `RestoreOp.plan` JSONB'ye yazar (state=PLANNED). `osbak restore apply <op-id>` saklı adımlarla `RebuildExecutor`'ı yürütür (PLANNED → PREFLIGHT_PASS → EXECUTING → DONE|FAILED — spec §15). Plan→apply arası durum değişirse (restore point silindiyse / op PLANNED değilse) apply REDDEDİLİR, yeniden plan istenir (§15). Preflight bağlanır: `OrjinalInstanceYok` kuralı (ADR-001 rebuild: orijinal instance silinmiş olmalı).
@@ -57,7 +60,7 @@ HTTP/API: KAPSAM DIŞI (ayrı milestone); bu plan CLI + servis + test üretir.
 - `RestoreOp` (models.py) iki yeni kolon: `plan: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, nullable=True)` ve `options: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, nullable=True)`.
 - `init_db` değişmez: `create_all` yeni tablolar+yeni kolonlar eksikse kurar; mevcut/üretim DB'de kolon EKLEMEZ → üretim DB ALTER notu Task 5 NOTES'a.
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 `tests/test_restore_model.py`'ye ekle:
 ```python
@@ -115,9 +118,9 @@ def test_options_to_dict_serializes_enum() -> None:
     }
 ```
 
-- [ ] **Step 2: Run to fail** — `python -m pytest tests/test_restore_model.py -v` → 3 yeni test FAIL.
+- [x] **Step 2: Run to fail** — `python -m pytest tests/test_restore_model.py -v` → 3 yeni test FAIL.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `src/osbak/models.py` RestoreOp'a ekle (mapping'den sonra):
 ```python
@@ -162,11 +165,11 @@ def options_to_dict(options: RestoreOptions) -> dict:
     }
 ```
 
-- [ ] **Step 4: Run to pass** — `python -m pytest tests/test_restore_model.py -v` → PASS.
+- [x] **Step 4: Run to pass** — `python -m pytest tests/test_restore_model.py -v` → PASS.
 
-- [ ] **Step 5: Full suite** — `python -m pytest -q` → tümü pass.
+- [x] **Step 5: Full suite** — `python -m pytest -q` → tümü pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/osbak/models.py src/osbak/restore/model.py tests/test_restore_model.py
@@ -189,7 +192,7 @@ git commit -m "feat: RestoreOp plan/options JSONB kolonlari + plan serialization
 - `keystone_erisim` zaten `applies_to = frozenset(PlanKind)` → RESTORE validate'ında da koşar (istenen: bağlantı erişimini doğrular).
 - Kayıt için `restore_service` import edecek (Task 4): `from osbak.preflight.rules import restore` (register_check çağrılarını tetikler).
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 `tests/test_preflight_restore.py`:
 ```python
@@ -239,9 +242,9 @@ def test_orjinal_instance_yok_requires_uuid() -> None:
 
 (FakeGateway imzaları `tests/fake_gateway.py`'den doğrulandı: `projects: list[ProjectInfo]`, `servers: dict[str, list[ServerInfo]]` — raw dict DEĞİL, tipik nesneler.)
 
-- [ ] **Step 2: Run to fail** — `python -m pytest tests/test_preflight_restore.py -v` → FAIL (restore kuralı yok).
+- [x] **Step 2: Run to fail** — `python -m pytest tests/test_preflight_restore.py -v` → FAIL (restore kuralı yok).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `src/osbak/preflight/rules/restore.py`:
 ```python
@@ -278,11 +281,11 @@ class OrjinalInstanceYok(Check):
                            "orijinal instance yok — rebuild uygun")
 ```
 
-- [ ] **Step 4: Run to pass** — `python -m pytest tests/test_preflight_restore.py -v` → PASS.
+- [x] **Step 4: Run to pass** — `python -m pytest tests/test_preflight_restore.py -v` → PASS.
 
-- [ ] **Step 5: Full suite** — `python -m pytest -q` → tümü pass (yeni kural diğer PlanKind'leri etkilemez; REM boost yok).
+- [x] **Step 5: Full suite** — `python -m pytest -q` → tümü pass (yeni kural diğer PlanKind'leri etkilemez; REM boost yok).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/osbak/preflight/rules/restore.py tests/test_preflight_restore.py
@@ -302,7 +305,7 @@ git commit -m "feat: preflight OrjinalInstanceYok kurali (PlanKind.RESTORE)"
 
 **JSON kalıcılık deseni (korunur):** op zaten DB'de (PLANNED, mapping={}); executor lokal `mapping` kurar, bitişte `op.mapping = dict(mapping)` (YENİ nesne) → SQLAlchemy değişikliği algılar. `copy` importu executor'dan kalkar (INSERT artık burada yok). EXECUTING anında mapping YAZILMAZ (op.mapping PLANNED'den `{}` kalır); yalnızca bitişte (DONE/FAILED) dolu `dict(mapping)` YENİ nesne olarak atanır → PLANNED'deki `{}` ile fark algılanır.
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 `tests/test_restore_executor.py` — `build_plan()` korunur; her teste `_planned_op` helper'ı ile op kurulur; tüm çağrılar `exc.execute(op, plan)` olur:
 ```python
@@ -417,9 +420,9 @@ def test_execute_failure_marks_failed_and_raises(session) -> None:
     assert op.mapping["volumes"] == {}
 ```
 
-- [ ] **Step 2: Run to fail** — `python -m pytest tests/test_restore_executor.py -v` → FAIL (imza uyumsuz + op kurulumu).
+- [x] **Step 2: Run to fail** — `python -m pytest tests/test_restore_executor.py -v` → FAIL (imza uyumsuz + op kurulumu).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `src/osbak/restore/executor.py`:
 ```python
@@ -528,11 +531,11 @@ class RebuildExecutor:
         return mapping
 ```
 
-- [ ] **Step 4: Run to pass** — `python -m pytest tests/test_restore_executor.py -v` → PASS.
+- [x] **Step 4: Run to pass** — `python -m pytest tests/test_restore_executor.py -v` → PASS.
 
-- [ ] **Step 5: Full suite** — `python -m pytest -q` → tümü pass.
+- [x] **Step 5: Full suite** — `python -m pytest -q` → tümü pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/osbak/restore/executor.py tests/test_restore_executor.py
@@ -587,7 +590,7 @@ git commit -m "refactor: RebuildExecutor execute(op, plan) — op ayirmadan yuru
 
 **Kayıt için `.preflight.rules` importu:** `restore_service.py` içinde `from osbak.preflight.rules import keystone, restore  # noqa: F401 (register)` — keystone RESTORE'a da uygulanır, restore kuralı register edilir. (Task 2'nin `preflight/rules/restore.py` import'u).
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 `tests/test_restore_service.py`:
 ```python
@@ -728,9 +731,9 @@ def test_show_reads_op(session) -> None:
 
 (FakeGateway gerçek imzaları: `projects: list[ProjectInfo]`, `servers: dict[str, list[ServerInfo]]` — `tests/fake_gateway.py`'den. `ServerInfo` zorunlu alanları: id/name/project_id/status/flavor_id.)
 
-- [ ] **Step 2: Run to fail** — `python -m pytest tests/test_restore_service.py -v` → FAIL.
+- [x] **Step 2: Run to fail** — `python -m pytest tests/test_restore_service.py -v` → FAIL.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `src/osbak/restore/restore_service.py`:
 ```python
@@ -873,11 +876,11 @@ class RestoreService:
         return datetime.now(timezone.utc)
 ```
 
-- [ ] **Step 4: Run to pass** — `python -m pytest tests/test_restore_service.py -v` → PASS.
+- [x] **Step 4: Run to pass** — `python -m pytest tests/test_restore_service.py -v` → PASS.
 
-- [ ] **Step 5: Full suite** — `python -m pytest -q` → tümü pass.
+- [x] **Step 5: Full suite** — `python -m pytest -q` → tümü pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/osbak/restore/restore_service.py tests/test_restore_service.py
@@ -907,7 +910,7 @@ git commit -m "feat: RestoreService iki fazli plan/apply/show + preflight baglam
 - Her komut: `settings = ctx.obj`, engine+init_db+session (mevcut desen), `finally: session.close(); engine.dispose()`.
 - `restore plan` ve `restore show` gateway gerektirmez (DB-only); `restore apply` connection + SDKGateway + `_restore_gateway_factory` kurar (canlı mutasyon NotImplementedError — provider milestone'a; CLI testleri monkeypatch ile Fake kullanır).
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 `tests/test_cli.py`'ye ekle:
 ```python
@@ -996,9 +999,9 @@ def test_restore_show_prints_op(monkeypatch, tmp_path) -> None:
     assert '"server": "s-1"' in result.output
 ```
 
-- [ ] **Step 2: Run to fail** — `python -m pytest tests/test_cli.py -v` → 3 yeni test FAIL (restore komutu yok).
+- [x] **Step 2: Run to fail** — `python -m pytest tests/test_cli.py -v` → 3 yeni test FAIL (restore komutu yok).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `src/osbak/cli.py`'ye ekle (import bloğunu güncelle: `from osbak.restore.model import RestoreOptions, RestoreStrategy` ve `from osbak.restore.restore_service import RestoreService`):
 ```python
@@ -1098,9 +1101,9 @@ def _make_session(settings: Settings):
 ```
 (Usage: `engine, session = _make_session(settings)`; `finally: session.close(); engine.dispose()` — mevcut komutların `finally: session.close(); engine.dispose()` deseni korunur. NOT: mevcut 3 komutu DEĞİŞTİRME — yeni komutlar helper kullanır; kapsam disiplini.)
 
-- [ ] **Step 4: Run to pass** — `python -m pytest tests/test_cli.py -v` → PASS.
+- [x] **Step 4: Run to pass** — `python -m pytest tests/test_cli.py -v` → PASS.
 
-- [ ] **Step 5: NOTES güncelle**
+- [x] **Step 5: NOTES güncelle**
 
 `src/osbak/restore/NOTES.md` derle karma:
 ```markdown
@@ -1113,16 +1116,16 @@ def _make_session(settings: Settings):
 - Model: RestoreOp.plan + options (JSONB) — MEVCUT DB'ye init_db create_all kolon EKLEMEZ; ALTER TABLE RESTORE_OPS ADD COLUMN plan JSON; ADD COLUMN options JSON; gereklidir (yeni kurulumda otomatik).
 ```
 
-- [ ] **Step 6: Tam paket** — `python -m pytest -q` → tümü pass (baseline 111 + CLI 3 = 114 civarı) → kanıtla-bitti (çıktı göster).
+- [x] **Step 6: Tam paket** — `python -m pytest -q` → tümü pass (baseline 111 + CLI 3 = 114 civarı) → kanıtla-bitti (çıktı göster).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/osbak/cli.py tests/test_cli.py src/osbak/restore/NOTES.md
 git commit -m "feat: CLI restore plan/apply/show + NOTES"
 ```
 
-- [ ] **Step 8: Branch kirletmeleri** — temp dosya yok (`git status` temiz).
+- [x] **Step 8: Branch kirletmeleri** — temp dosya yok (`git status` temiz).
 
 ---
 

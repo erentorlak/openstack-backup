@@ -87,6 +87,7 @@ anlamlıdır (belirli hata türü, belirli akış).
 
 - `docs/specs/2026-08-23-osbak-architecture.md` — davranışın tek doğruluk kaynağı (spec)
 - `docs/adr/ADR-001-rollback-strategies.md` — restore/rollback kararı
+- `docs/adr/ADR-002-manifest-lock-tz.md` — manifest kilit/dışlamalar + tz tutarlılığı
 - `docs/discipline.md` — çalışma disiplini protokolü (döngü, subagent, doğrulama, git)
 - `README.md` — proje özeti ve durum
 - `docs/` — diğer ADR'ler ve LLM notları

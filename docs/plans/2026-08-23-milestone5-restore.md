@@ -1,5 +1,8 @@
 # Plan 5: Restore Motoru — plan soyutlaması + rebuild (kimliği koruyarak yeniden kur) — Implementation Plan
 
+> **Durum: TAMAMLANDI** — plan implement edildi, main'e merge edildi (tarihsel
+> kayıt). Kalıcı davranış ve tuzaklar için src/osbak/restore/NOTES.md ve README'ye bakın.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Restore motorunun planlama + rebuild çekirdeğini inşa et: manifest (JSONB) → doğrulanmış `RestorePlan` (kaynaklar, eski→yeni UUID eşlemesi, resource delta, bağımlılık sırası) ve bunu yürüten `RebuildExecutor` (SG 2-pass → volume → port [aynı IP/MAC] → flavor → instance → floating IP). Kimlik korunur (aynı IP/MAC), instance UUID değişir (ADR-001 `rebuild`).
@@ -59,7 +62,7 @@ CLI/API wiring: KAPSAM DIŞI (Plan 7 API milestone); bu plan servis + test üret
 
 **Sözleşme:** `PlanStep.key` glob; `action` şunlardan biri olacak: `ensure_security_group_shell`, `add_security_group_rules`, `create_volume`, `create_port`, `find_or_create_flavor`, `create_server` (executor Task 4 bunlara göre çalışır). `resource_delta` örn. `{"volumes": n, "ports": n, "security_groups": n, "servers": 1}` (plan zamanı tahmini; executor fiili yaratmayı izler).
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 `tests/test_restore_model.py`:
 ```python
@@ -116,9 +119,9 @@ def test_plan_error_is_exception() -> None:
         assert "plan" in str(exc)
 ```
 
-- [ ] **Step 2: Run to fail** — `pytest tests/test_restore_model.py -v` → FAIL.
+- [x] **Step 2: Run to fail** — `pytest tests/test_restore_model.py -v` → FAIL.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `src/osbak/restore/model.py`:
 ```python
@@ -163,9 +166,9 @@ class RestorePlan:
     resource_delta: dict[str, int]
 ```
 
-- [ ] **Step 4: Run to pass** — `pytest tests/test_restore_model.py -v` → PASS.
+- [x] **Step 4: Run to pass** — `pytest tests/test_restore_model.py -v` → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/osbak/restore tests/test_restore_model.py
@@ -202,7 +205,7 @@ git commit -m "feat: restore model (strategy, options, plan, step, error)"
   - `SDKRestoreGateway` — canlı-görev sarmalayıcı (NOTES'ta doğrulanacak); birim test DIŞI. Metotların her biri `raise NotImplementedError("canlı ortamda doğrulanacak")` — bu plan çekirdeği FakeRestoreGateway ile test edilir.
   - `FakeRestoreGateway` (tests/) — aynı Protocol; `self.created` dict (action→liste), `self._next_id` sayaç; her `create_*`/`ensure_*` deterministik `f"{action}-{next_id}"` id döndürür; `ensure_security_group` aynı name'de tekrar çağrılırsa aynı id'yi döndürür (idempotent).
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 `tests/fake_restore_gateway.py`:
 ```python
@@ -282,9 +285,9 @@ def test_fake_gateway_creates_distinct_ids() -> None:
 ```
 (İkinci test farklı dosyada `tests/test_restore_gateway.py` içinde; import `from tests.fake_restore_gateway import FakeRestoreGateway`.)
 
-- [ ] **Step 2: Run to fail** — `pytest tests/test_restore_gateway.py -v` → FAIL.
+- [x] **Step 2: Run to fail** — `pytest tests/test_restore_gateway.py -v` → FAIL.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `src/osbak/restore/gateway_mutations.py`:
 ```python
@@ -392,9 +395,9 @@ class SDKRestoreGateway:
         raise NotImplementedError("canlı ortamda doğrulanacak")
 ```
 
-- [ ] **Step 4: Run to pass** — `pytest tests/test_restore_gateway.py -v` → PASS.
+- [x] **Step 4: Run to pass** — `pytest tests/test_restore_gateway.py -v` → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/osbak/restore/gateway_mutations.py tests/fake_restore_gateway.py tests/test_restore_gateway.py
@@ -432,7 +435,7 @@ git commit -m "feat: RestoreGateway mutation protocol, FakeRestoreGateway"
 
 **Karar sesi:** `options.strategy != REBUILD` → `RestorePlanError("henüz desteklenmiyor")`. Uygulama **saf** (I/O yok) — var/yok kararlarını `ensure_*` idempotentliğine ve preflight'a bırakır.
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 `tests/test_restore_planner.py` (manifest helper aynı dosyada):
 ```python
@@ -522,9 +525,9 @@ def test_resource_delta() -> None:
                                    "flavors": 1, "servers": 1}
 ```
 
-- [ ] **Step 2: Run to fail** — `pytest tests/test_restore_planner.py -v` → FAIL.
+- [x] **Step 2: Run to fail** — `pytest tests/test_restore_planner.py -v` → FAIL.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `src/osbak/restore/planner.py`:
 ```python
@@ -662,9 +665,9 @@ class RestorePlanner:
         )
 ```
 
-- [ ] **Step 4: Run to pass** — `pytest tests/test_restore_planner.py -v` → PASS.
+- [x] **Step 4: Run to pass** — `pytest tests/test_restore_planner.py -v` → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/osbak/restore/planner.py tests/test_restore_planner.py
@@ -702,7 +705,7 @@ git commit -m "feat: RestorePlanner manifest->RebuildPlan (saf plan)"
 
 **`except Exception` notu (kasıtlı, izinli):** Tek handler `RestorePlanError`'ı da yakalar (eski `except RestorePlanError: raise` passthrough'u KALDIRILDI — bilinmeyen adım senaryosu `RestorePlanError("bilinmeyen adim: ...")` üretir ve bu da FAILED kaydı yaşamadan geçip EXECUTING'de kalakalırdı; spec §15 FAILED ister). Bu AGENTS.md'de izinli kalıptır: state=FAILED + error + commit → `raise RestorePlanError from exc`. Yani senaryo belirsizliğinde "başka yol dene" değildir; aksine **deterministik hata sonlandırmasıdır** (devlet makinesi FAILED'e geçer, kısmi mapping korunur). Ayrıca RESTORE_AGENT subagent'ların bu notu dikkate alıp executor'ı değiştirmemesi için koda `# noqa: BLE001` koyulur.
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 `tests/test_restore_executor.py`:
 ```python
@@ -768,9 +771,9 @@ def test_execute_failure_marks_failed_and_raises(session) -> None:
     assert op.finished_at is not None
 ```
 
-- [ ] **Step 2: Run to fail** — `pytest tests/test_restore_executor.py -v` → FAIL.
+- [x] **Step 2: Run to fail** — `pytest tests/test_restore_executor.py -v` → FAIL.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `src/osbak/restore/executor.py`:
 ```python
@@ -886,9 +889,9 @@ class RebuildExecutor:
         return mapping
 ```
 
-- [ ] **Step 4: Run to pass** — `pytest tests/test_restore_executor.py -v` → PASS.
+- [x] **Step 4: Run to pass** — `pytest tests/test_restore_executor.py -v` → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/osbak/restore/executor.py tests/test_restore_executor.py
@@ -899,7 +902,7 @@ git commit -m "feat: RebuildExecutor + restore_ops state machine kaydi"
 
 ## Task 5: NOTES + tam paket doğrulama
 
-- [ ] **Step 1: NOTES güncelle**
+- [x] **Step 1: NOTES güncelle**
 
 `src/osbak/restore/NOTES.md` (oluştur — repo konvansiyonu: `# restore — notlar (LLM'ler için)` + Ne/Neden/Tuzaklar):
 ```markdown
@@ -927,23 +930,23 @@ Tuzaklar:
   security_groups için ad (idempotent ensure ad ile çalışır).
 ```
 
-- [ ] **Step 2: Tam paket**
+- [x] **Step 2: Tam paket**
 
 ```bash
 source .venv/bin/activate
 python -m pytest -q
 ```
 
-- [ ] **Step 3: Plan dosyası bütünlüğü** — `docs/plans/` içinde Task başlık deseni tutarlı (`## Task N: ...`), bu plan dosyasında kopuk/yarım kod blokları yok (yapıştırma kontrolü: her fenced block açılıp kapanıyor).
+- [x] **Step 3: Plan dosyası bütünlüğü** — `docs/plans/` içinde Task başlık deseni tutarlı (`## Task N: ...`), bu plan dosyasında kopuk/yarım kod blokları yok (yapıştırma kontrolü: her fenced block açılıp kapanıyor).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/osbak/restore/NOTES.md
 git commit -m "docs: Plan 5 NOTES ve dogrulama"
 ```
 
-- [ ] **Step 5: Branch kirletmeleri** — temp dosya/artık yok (`git status` temiz).
+- [x] **Step 5: Branch kirletmeleri** — temp dosya/artık yok (`git status` temiz).
 
 ---
 

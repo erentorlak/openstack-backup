@@ -1,5 +1,8 @@
 # Plan 2: Preflight Motoru (plan → validate → apply) — Implementation Plan
 
+> **Durum: TAMAMLANDI** — plan implement edildi, main'e merge edildi (tarihsel
+> kayıt). Kalıcı davranış ve tuzaklar için src/osbak/preflight/NOTES.md ve README'ye bakın.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Kontrol çerçevesini inşa et: doğrulama ağacı (PlanKind × Check), her check'in PASS/FAIL + mesaj döndürdüğü `ValidationEngine`, ve gateway'e dayanan ilk check seti (keystone erişim, instance mevcut/durum). Çıktı: `ValidationReport` (passed + resource_delta).
@@ -47,7 +50,7 @@ tests/test_preflight_rules.py
 **Interfaces:**
 - Produces: `PlanKind` (SNAPSHOT/BACKUP/RESTORE/ROLLBACK), `CheckKind` (ERISIM/KAPASITE/DURUM/YETKINLIK/LIMIT/CAKISMA), `CheckStatus` (PASS/FAIL), `CheckResult(name, kind, status, message, data)`, `ValidationReport(plan_kind, results, resource_delta)` with `.passed` property and `.by_kind(kind)`.
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 `tests/test_preflight_model.py`:
 ```python
@@ -97,9 +100,9 @@ def test_report_by_kind_filters() -> None:
     assert [r.name for r in durum] == ["b", "c"]
 ```
 
-- [ ] **Step 2: Run to fail** — `pytest tests/test_preflight_model.py -v` → FAIL (modül yok).
+- [x] **Step 2: Run to fail** — `pytest tests/test_preflight_model.py -v` → FAIL (modül yok).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `src/osbak/preflight/model.py`:
 ```python
@@ -154,9 +157,9 @@ class ValidationReport:
         return tuple(result for result in self.results if result.kind is kind)
 ```
 
-- [ ] **Step 4: Run to pass** — `pytest tests/test_preflight_model.py -v` → PASS.
+- [x] **Step 4: Run to pass** — `pytest tests/test_preflight_model.py -v` → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/osbak/preflight tests/test_preflight_model.py
@@ -178,7 +181,7 @@ git commit -m "feat: preflight model (PlanKind, CheckKind, CheckResult, Validati
 
 **Registry sözleşmesi:** aynı (PlanKind, name) ikilisi ikinci kez kaydedilirse `ValueError` (deterministik hata, sessiz üzerine yazma yok). `validate` `only` parametresi verilirse yalnız o name'lere sahip check'leri koşar (apply yeniden-doğrulama için).
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 `tests/test_preflight_engine.py`:
 ```python
@@ -237,9 +240,9 @@ def test_duplicate_registration_raises() -> None:
             name = "always_pass"
 ```
 
-- [ ] **Step 2: Run to fail** — `pytest tests/test_preflight_engine.py -v` → FAIL.
+- [x] **Step 2: Run to fail** — `pytest tests/test_preflight_engine.py -v` → FAIL.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `src/osbak/preflight/context.py`:
 ```python
@@ -315,9 +318,9 @@ class ValidationEngine:
         return ValidationReport(plan_kind=plan_kind, results=tuple(results))
 ```
 
-- [ ] **Step 4: Run to pass** — `pytest tests/test_preflight_engine.py -v` → PASS.
+- [x] **Step 4: Run to pass** — `pytest tests/test_preflight_engine.py -v` → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/osbak/preflight/context.py src/osbak/preflight/engine.py tests/test_preflight_engine.py
@@ -343,7 +346,7 @@ git commit -m "feat: Check ABC, registry, ValidationEngine"
 
 **Davranış notu:** `instance_durum` ve `instance_mevcut` aynı server aramasını tekrar etmemek için `ctx.data` paylaşır — `instance_mevcut` `ctx.data["server"] = server` yazar; `instance_durum` onu okur. Sıra bağımlılığı registry kayıt sırasından gelir; bu plan'da ok ama kırılgan olabilir — alternatifi sunmak yerine bu deterministik sözleşmeyi kabul ediyoruz (iki check de server yoksa FAIL).
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 `tests/test_preflight_rules.py`:
 ```python
@@ -438,9 +441,9 @@ def test_instance_durum_pass_and_fail() -> None:
     assert any(r.status is CheckStatus.FAIL for r in fail_report.results)
 ```
 
-- [ ] **Step 2: Run to fail** — `pytest tests/test_preflight_rules.py -v` → FAIL.
+- [x] **Step 2: Run to fail** — `pytest tests/test_preflight_rules.py -v` → FAIL.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `src/osbak/preflight/rules/keystone.py`:
 ```python
@@ -531,9 +534,9 @@ class InstanceDurum(Check):
         return CheckResult(self.name, self.kind, CheckStatus.PASS, f"durum: {server.status}")
 ```
 
-- [ ] **Step 4: Run to pass** — `pytest tests/test_preflight_rules.py -v` → PASS.
+- [x] **Step 4: Run to pass** — `pytest tests/test_preflight_rules.py -v` → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/osbak/preflight/rules tests/test_preflight_rules.py
@@ -551,7 +554,7 @@ git commit -m "feat: preflight rules (keystone erisim, instance mevcut/durum)"
 **Interfaces:**
 - Consumes: Task 1-3 çıktıları.
 
-- [ ] **Step 1: NOTES yaz**
+- [x] **Step 1: NOTES yaz**
 
 `src/osbak/preflight/NOTES.md`:
 ```markdown
@@ -575,9 +578,9 @@ Tuzaklar:
 - Fallback kuralı: çok-anahtar okuma yok; "instance yok" FAIL'dır, istisna değil.
 ```
 
-- [ ] **Step 2: Tüm suite** — `pytest -v` → tümü (önceki 28 + yeni) PASS, pristine.
+- [x] **Step 2: Tüm suite** — `pytest -v` → tümü (önceki 28 + yeni) PASS, pristine.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/osbak/preflight/NOTES.md

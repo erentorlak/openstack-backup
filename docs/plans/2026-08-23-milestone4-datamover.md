@@ -1,5 +1,8 @@
 # Plan 4: Data Mover (chunk+hash) + T1 offload — Implementation Plan
 
+> **Durum: TAMAMLANDI** — plan implement edildi, main'e merge edildi (tarihsel
+> kayıt). Kalıcı davranış ve tuzaklar için src/osbak/mover/NOTES.md ve README'ye bakın.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** T1 offload çekirdeğini inşa et: volume verisini block'lara böl, content-addressed hash'le (blake2b, 4MiB), bir chunk store'a yaz (T1), `chunks`/`volume_chunk_map` katalog satırlarıyla refcount dedup'u yönet, `VolumeBackup.tier`'ı T0→T1'e taşı. `VolumeSource` soyutlaması üzerinden Ceph (rbd diff/live) ve NetApp (future) kaynaklarına hazır.
@@ -57,7 +60,7 @@ Bu plana CLI/engine wiring DAHİL DEĞİL (Plan 7 scheduler/API); oda: export ç
 
 **Semantik:** `exists=False` extent'ler (rbd diff'te zero region / NetApp'te atlanan) upload EDİLMEZ — chunker onları yok sayar, restore sırasında sparse olur. `split_bytes` yalnızca mevcut veriyi böler.
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 `tests/test_chunker.py`:
 ```python
@@ -97,9 +100,9 @@ def test_split_bytes_with_start_offset() -> None:
     assert [e.length for e in extents] == [64, 36]
 ```
 
-- [ ] **Step 2: Run to fail** — `pytest tests/test_chunker.py -v` → FAIL (modül yok).
+- [x] **Step 2: Run to fail** — `pytest tests/test_chunker.py -v` → FAIL (modül yok).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `src/osbak/mover/chunker.py`:
 ```python
@@ -134,9 +137,9 @@ def split_bytes(
     return extents
 ```
 
-- [ ] **Step 4: Run to pass** — `pytest tests/test_chunker.py -v` → PASS.
+- [x] **Step 4: Run to pass** — `pytest tests/test_chunker.py -v` → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/osbak/mover tests/test_chunker.py
@@ -164,7 +167,7 @@ git commit -m "feat: chunker (Extent, blake2b chunk_hash, block split)"
   - `S3ChunkStore(bucket: str, client: Any) -> None` — boto3 tabanlı; `_key(h) = f"chunk/{h}"`; `put` → `client.put_object(Bucket=bucket, Key=_key(h), Body=data)`; `get` → `client.get_object(...)["Body"].read()` (ClientError → None, dar/anlamlı: 404 = yok); `exists` → try head_object → True, ClientError → False. Live-thin, birim test DIŞI.
   - `MemoryChunkStore` (tests/memory_store.py — TEST ARAÇ, src değil): dict tabanlı, aynı Protocol.
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 `tests/memory_store.py`:
 ```python
@@ -204,9 +207,9 @@ def test_memory_store_roundtrip() -> None:
     assert store.get("nope") is None
 ```
 
-- [ ] **Step 2: Run to fail** — `pytest tests/test_export.py -v` → FAIL.
+- [x] **Step 2: Run to fail** — `pytest tests/test_export.py -v` → FAIL.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `src/osbak/mover/store.py`:
 ```python
@@ -266,9 +269,9 @@ class S3ChunkStore:
             return False
 ```
 
-- [ ] **Step 4: Run to pass** — `pytest tests/test_export.py -v` → PASS.
+- [x] **Step 4: Run to pass** — `pytest tests/test_export.py -v` → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/osbak/mover/store.py tests/memory_store.py tests/test_export.py
@@ -295,7 +298,7 @@ git commit -m "feat: ChunkStore protocol, S3ChunkStore (live), MemoryChunkStore 
     - `read(extent)`: extent'in bytes verisini döner. `iter_extents` ve `read` senkron uyumlu: read yalnızca iter_extents'ten dönen extent'ler için çağrılır.
   - `CephRbdSource(pool, image, snapshot, base_snapshot=None, rados_client=None)` — live-lazy: `rados`/`rbd` importlib.import_module ile çağrı anında; `iter_extents()` → rbd diff --from-snap → Extent listesi; read → ioctx/Image.read. Birim test DIŞI (canlı). Yapı: `__init__` içinde `importlib.util.find_spec("rados") is None → ProviderUnavailable` (CephProvider ile tutarlı).
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 `tests/fake_source.py`:
 ```python
@@ -333,9 +336,9 @@ def test_fake_source_contract() -> None:
     assert src.read(src.iter_extents()[0]) == b"abc"
 ```
 
-- [ ] **Step 2: Run to fail** — `pytest tests/test_export.py -v` → FAIL (source modülü yok).
+- [x] **Step 2: Run to fail** — `pytest tests/test_export.py -v` → FAIL (source modülü yok).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `src/osbak/mover/source.py`:
 ```python
@@ -386,9 +389,9 @@ class CephRbdSource:
         raise NotImplementedError("canlı ortamda doğrulanacak")
 ```
 
-- [ ] **Step 4: Run to pass** — `pytest tests/test_export.py -v` → PASS.
+- [x] **Step 4: Run to pass** — `pytest tests/test_export.py -v` → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/osbak/mover/source.py tests/fake_source.py
@@ -428,7 +431,7 @@ git commit -m "feat: VolumeSource protocol, CephRbdSource (live-lazy), FakeVolum
 
 Not: `VolumeChunkMap` satırları her export için YENİ yazılır (aynı volume_backup tek kez export edilir; re-export aynı volume_backup üzerinde yapılmaz).
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 `tests/test_export.py` (mevcut store/source testlerine ekle):
 ```python
@@ -535,9 +538,9 @@ def test_export_rollback_on_error(session) -> None:
     assert vb.tier == "t0"  # değişmedi
 ```
 
-- [ ] **Step 2: Run to fail** — `pytest tests/test_export.py -v` → FAIL.
+- [x] **Step 2: Run to fail** — `pytest tests/test_export.py -v` → FAIL.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `src/osbak/mover/service.py`:
 ```python
@@ -627,9 +630,9 @@ class ExportService:
         return stats
 ```
 
-- [ ] **Step 4: Run to pass** — `pytest tests/test_export.py -v` → PASS.
+- [x] **Step 4: Run to pass** — `pytest tests/test_export.py -v` → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/osbak/mover/service.py tests/test_export.py
@@ -647,7 +650,7 @@ git commit -m "feat: ExportService (chunk, dedup, refcount, tier t0->t1)"
 **Interfaces:**
 - Consumes: Task 1-4 çıktıları.
 
-- [ ] **Step 1: NOTES yaz**
+- [x] **Step 1: NOTES yaz**
 
 `src/osbak/mover/NOTES.md`:
 ```markdown
@@ -673,7 +676,7 @@ Tuzaklar:
   (canlı kurulumda `osbak[t1]`).
 ```
 
-- [ ] **Step 2: Tüm suite + commit**
+- [x] **Step 2: Tüm suite + commit**
 
 ```bash
 pytest -v   # tümü PASS, pristine
@@ -681,7 +684,7 @@ git add src/osbak/mover/NOTES.md
 git commit -m "docs: mover NOTES"
 ```
 
-- [ ] **Step 3: Plan kapanışı** — bu dosyadaki tüm `- [ ]` işaretle (elle); deviasyonları (karar farkı) ADR/spec revizyonu olarak not et.
+- [x] **Step 3: Plan kapanışı** — bu dosyadaki tüm `- [ ]` işaretle (elle); deviasyonları (karar farkı) ADR/spec revizyonu olarak not et.
 
 ---
 

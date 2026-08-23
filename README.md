@@ -14,9 +14,22 @@ Skyline'a sonradan bağlanabilir.
 
 ## Durum
 
-Milestone 1 tamamlandı: inventory taraması (katalog) ve manifest üretimi CLI
-üzerinden çalışır durumda (`osbak inventory-refresh`, `osbak manifest-show`).
-Kalan milestone'lar (snapshot/alma, restore, S3, yönetim arayüzü) bekliyor.
+Milestone 1–6 tamamlandı ve main'e merge edildi. Çalışır durumda:
+
+- **Katalog/discovery:** `osbak inventory-refresh` (proje/sunucu/volume UPSERT)
+- **Manifest:** `osbak manifest-show <instance-uuid>`
+- **Snapshot:** `osbak snapshot-take <instance-uuid> [--consistent]` (quiesce +
+  per-volume snapshot → restore point; kısmi hatalarda ref temizliği + rollback)
+- **Restore:** `osbak restore plan <restore-point-id> [--strategy rebuild]` ve
+  `osbak restore apply <restore-op-id>` (iki fazlı: PLANNED → … → DONE|FAILED,
+  kimlik/ağ/security metadata'sıyla yeniden inşa)
+
+Hâlâ **bekleyen** katmanlar (provider milestone'ında, canlı altyapı ile doğrulanır):
+- Canlı storage yolları: Ceph RBD snapshot/delete, ONTAP, S3 object store (T1)
+- Restore veri yolu (chunk → volume maddileştirme; `os-backup restore` şu an
+  volumeleri boş yaratır)
+- Yönetim web arayüzü (FastAPI + Keystone auth) ve planlı S3/T2 zinciri
+
 Bu repo yalnızca LLM'ler tarafından geliştirilecektir — her katman LLM için
 dokümante edilmiş olmalı.
 
@@ -24,15 +37,19 @@ dokümante edilmiş olmalı.
 
 - `AGENTS.md` — repo kuralları ve LLM geliştirme konvansiyonları
 - `docs/specs/2026-08-23-osbak-architecture.md` — mimari spec (tek doğruluk kaynağı)
-- `docs/adr/` — karar kayıtları (ADR-001: rollback stratejileri)
+- `docs/adr/` — karar kayıtları (ADR-001: rollback stratejileri, ADR-002: manifest kilit/tz)
 - `docs/discipline.md` — çalışma disiplini protokolü
-- `docs/plans/2026-08-23-milestone1.md` — Milestone 1 uygulama planı
+- `docs/plans/` — milestone uygulama planları (tamamlananlar tarihsel kayıttır)
+- `src/osbak/*/NOTES.md` — her modülün LLM notları (tuzaklar, davranış sözleşmeleri)
 
-## Başlarken (Milestone 1)
+## Başlarken
 
 ```bash
 python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
 osbak --config config.yaml inventory-refresh
 osbak --config config.yaml manifest-show <instance-uuid>
+osbak --config config.yaml snapshot-take <instance-uuid> --consistent
+osbak --config config.yaml restore plan <restore-point-id>
+osbak --config config.yaml restore apply <restore-op-id>
 ```
