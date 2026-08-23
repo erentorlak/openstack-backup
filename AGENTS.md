@@ -66,6 +66,13 @@ Aşağıdaki şartlar da tasarım sınırıdır (spec'te gerekçeleri var):
 - `plan → validate → apply` ayrımı hem API'de hem kodda ihlal edilmez; sessiz
   alternatif yol yoktur.
 
+**Koddaki fallback kuralı:** Tasarım düzeyinde "fallback yok" ilkesi, kodla
+aynı ciddiyette uygulanır. Davranış belirsizse koda defansif çok-yol/çok-anahtar
+okuma (`_pick`-benzeri) ya da geniş `except Exception` YAZILMAZ — belirsizlik
+**test veya doğrulamayla** çözülür (release-gated kaynak, canlı ortam, test).
+Kod, doğrulanmış davranışı tek yoldan ifade eder. İstisna yakalanacaksa dar ve
+anlamlıdır (belirli hata türü, belirli akış).
+
 ## Konvansiyon
 
 - Yığın: Python 3 / FastAPI (backend), Vue (frontend). Single-VM dağıtım.

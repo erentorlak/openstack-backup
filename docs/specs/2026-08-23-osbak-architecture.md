@@ -96,8 +96,8 @@ projects(id, keystone_project_id, enabled)
 
 instances(id, instance_uuid UNIQUE, project_id, last_seen_at)
 volume_refs(id, instance_id FK, volume_uuid, boot_index, size_gb,
-            volume_type, backend, pool, provider_location,
-            format  -- nfs: raw|qcow2 (keşifte tespit)
+            volume_type, backend, pool,
+            format  -- nfs: raw|qcow2 (yalnızca NFS data-path keşfi erişirse)
            )
 
 restore_points(id, kind SNAPSHOT|BACKUP, instance_id FK,
@@ -141,9 +141,14 @@ DISCOVER → MANIFEST → QUIESCE → SNAPSHOT ─┬─► register (tür=SNAPS
                                                    → register (tür=BACKUP)
 ```
 
-1. **DISCOVER**: Nova/Cinder/Neutron'dan envanter tazele; `os-vol-host-attr:host`
-   → backend/pool eşle; `provider_location` → NetApp SVM/FlexVol eşle (format
-   tespiti: `qemu-img info` benzeri keşif; raw varsayılan).
+1. **DISCOVER**: Nova/Cinder/Neutron'dan envanter tazele; `vol.host`
+   (`os-vol-host-attr:host`, `host@driver#pool`) → backend/pool eşle.
+   **Doğrulandı (2024.1):** `provider_location` ve `os-vol-host-attr:backend`
+   public API'de YOK (admin dahil) — pool yalnızca host string'inden türetilir.
+   Çapraz-proje listeleme tek admin token + `all_projects=True (+project_id=)`
+   ile (Nova/Cinder `all_tenants`; `project_id` filtresi yalnız
+   `all_tenants=True` iken çalışır). NetApp format tespiti (`raw|qcow2`) keşifte
+   yalnızca NFS data-path etkinse yapılır; aksi halde `format` bilinmiyor.
 2. **MANIFEST**: tam instance tanımı topla (flavor+extra_specs, BDM+volume_type,
    port'lar (MAC, fixed_ip, SG, QoS, vnic_type), SG kuralları (tam), server
    group, keypair, user_data, config_drive, AZ, metadata, tags, floating IP).
