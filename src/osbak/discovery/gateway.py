@@ -131,7 +131,12 @@ class OpenstackGateway(Protocol):
 
 
 def project_from_dict(d: dict[str, Any]) -> ProjectInfo:
-    return ProjectInfo(id=d["id"], name=d.get("name") or "", enabled=d.get("is_enabled", True))
+    return ProjectInfo(
+        id=d["id"],
+        name=d.get("name") or "",
+        domain_id=d.get("domain_id"),
+        enabled=d.get("is_enabled", True),
+    )
 
 
 def volume_from_dict(d: dict[str, Any]) -> VolumeInfo:
@@ -140,7 +145,7 @@ def volume_from_dict(d: dict[str, Any]) -> VolumeInfo:
             server_id=a["server_id"],
             device=a.get("device"),
             attachment_id=a.get("attachment_id"),
-            volume_id=a.get("volume_id", a.get("id", "")),
+            volume_id=a.get("volume_id") or "",
         )
         for a in d.get("attachments") or []
     )
@@ -167,7 +172,7 @@ def server_from_dict(d: dict[str, Any]) -> ServerInfo:
         status=d.get("status") or "",
         flavor_id=flavor.get("id") or "",
         key_name=d.get("key_name"),
-        config_drive=bool(d.get("config_drive", False)),
+        config_drive=str(d.get("config_drive", False)).lower() == "true",
         availability_zone=d.get("availability_zone"),
         created_at=d.get("created_at"),
         metadata=dict(d.get("metadata") or {}),

@@ -1,3 +1,5 @@
+import pytest
+
 from osbak.discovery.gateway import (
     flavor_from_dict,
     port_from_dict,
@@ -10,9 +12,10 @@ from osbak.discovery.gateway import (
 
 
 def test_project_from_dict() -> None:
-    p = project_from_dict({"id": "pid-1", "name": "proj-a"})
+    p = project_from_dict({"id": "pid-1", "name": "proj-a", "domain_id": "default"})
     assert p.id == "pid-1"
     assert p.name == "proj-a"
+    assert p.domain_id == "default"
 
 
 def test_volume_from_dict() -> None:
@@ -41,6 +44,7 @@ def test_volume_from_dict() -> None:
     assert v.host == "node1@rbd-1#pool-a"
     assert v.attachments[0].server_id == "i-1"
     assert v.attachments[0].device == "/dev/vda"
+    assert v.attachments[0].volume_id == "v-1"
 
 
 def test_server_from_dict_uses_tenant_id_and_flavor() -> None:
@@ -58,6 +62,27 @@ def test_server_from_dict_uses_tenant_id_and_flavor() -> None:
     assert s.project_id == "pid-1"
     assert s.flavor_id == "f-1"
     assert s.tags == ("t1",)
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("false", False),
+        ("true", True),
+    ],
+)
+def test_server_from_dict_config_drive_normalized(raw, expected) -> None:
+    s = server_from_dict(
+        {
+            "id": "i-1",
+            "name": "web-1",
+            "status": "ACTIVE",
+            "project_id": "pid-1",
+            "flavor": {"id": "f-1"},
+            "config_drive": raw,
+        }
+    )
+    assert s.config_drive is expected
 
 
 def test_port_from_dict() -> None:
