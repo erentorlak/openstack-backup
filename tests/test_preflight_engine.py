@@ -28,14 +28,16 @@ class SnapshotOnlyCheck(Check):
 
 def test_validate_runs_applicable_checks() -> None:
     ctx = PreflightContext(plan_kind=PlanKind.SNAPSHOT, gateway=FakeGateway(projects=[]))
-    report = ValidationEngine().validate(PlanKind.SNAPSHOT, ctx)
+    report = ValidationEngine().validate(
+        PlanKind.SNAPSHOT, ctx, only=["always_pass", "snapshot_only"]
+    )
     assert {r.name for r in report.results} == {"always_pass", "snapshot_only"}
     assert report.passed is True
 
 
 def test_validate_backup_excludes_snapshot_only() -> None:
     ctx = PreflightContext(plan_kind=PlanKind.BACKUP, gateway=FakeGateway(projects=[]))
-    report = ValidationEngine().validate(PlanKind.BACKUP, ctx)
+    report = ValidationEngine().validate(PlanKind.BACKUP, ctx, only=["always_pass", "snapshot_only"])
     assert {r.name for r in report.results} == {"always_pass"}
 
 
