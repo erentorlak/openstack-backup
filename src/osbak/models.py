@@ -49,7 +49,9 @@ class RestorePoint(Base):
     __tablename__ = "restore_points"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     kind: Mapped[str] = mapped_column(String(16))
-    instance_id: Mapped[int] = mapped_column(ForeignKey("instances.id"))
+    instance_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("instances.id"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     policy_id: Mapped[Optional[int]] = mapped_column(ForeignKey("policies.id"), nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="active")
@@ -60,7 +62,9 @@ class VolumeBackup(Base):
     __tablename__ = "volume_backups"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     restore_point_id: Mapped[int] = mapped_column(ForeignKey("restore_points.id"))
-    volume_ref_id: Mapped[int] = mapped_column(ForeignKey("volume_refs.id"))
+    volume_ref_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("volume_refs.id"), nullable=True
+    )
     snapshot_ref: Mapped[str] = mapped_column(String(256))
     tier: Mapped[str] = mapped_column(String(8))
     object_manifest: Mapped[dict[str, Any]] = mapped_column(JSON)
