@@ -11,7 +11,7 @@ Neden:
   istisnalar yukarı fırlar — engine istisna yutmaz.
 
 Tuzaklar:
-- `instance_mevcut` `ctx.data["server"]`'ı yazar, `instance_durum` okur — registry
+- `instance_present` `ctx.data["server"]`'ı yazar, `instance_state` okur — registry
   sırasına bağlı. Server yoksa ikisi de hangi sırada olursa FAIL.
 - Kapasite/yetkinlik/limit incelemeleri provider milestone'larında gelir
   (CheckKind hazır); resource_delta restore/snapshot milestone'ında dolar.
@@ -19,6 +19,6 @@ Tuzaklar:
 - `only` boş/uygunsuz sonuç üretebilir: `validate(BACKUP, only=["snapshot_only"])` → 0 sonuç ama
   `passed=True` (vacuously green). Apply öncesi yeniden-doğrulama bunu kullanmadan önce
   semantik kararlaştırılmalı (bilinmeyen ad → hata, veya boş rapor → pass değil).
-- `only=["instance_durum"]` yalnız başına `ctx.data["server"]`'ı okur — taze ctx'te spurious
+- `only=["instance_state"]` yalnız başına `ctx.data["server"]`'ı okur — taze ctx'te spurious
   FAIL üretir. Apply aynı plan-zamanı ctx'ini yeniden kullanmalı (veya durum check'i kendini
   fetch etmeli).

@@ -13,9 +13,9 @@ from osbak.preflight.model import (
 
 
 @register_check
-class KeystoneErisim(Check):
-    kind = CheckKind.ERISIM
-    name = "keystone_erisim"
+class KeystoneAccess(Check):
+    kind = CheckKind.ACCESS
+    name = "keystone_access"
     applies_to = frozenset(PlanKind)
 
     def run(self, ctx: PreflightContext) -> CheckResult:

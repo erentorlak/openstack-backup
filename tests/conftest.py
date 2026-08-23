@@ -1,12 +1,14 @@
 import pytest
 from sqlalchemy.orm import Session
 
-from osbak.db import create_engine_by_url, init_db, make_session_factory
+from sqlalchemy import create_engine
+
+from osbak.db import init_db, make_session_factory
 
 
 @pytest.fixture()
 def session() -> Session:
-    engine = create_engine_by_url("sqlite://")
+    engine = create_engine("sqlite://")
     init_db(engine)
     factory = make_session_factory(engine)
     s = factory()

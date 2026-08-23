@@ -110,6 +110,22 @@ def test_export_splits_large_extent(session) -> None:
     assert len(session.scalars(select(VolumeChunkMap)).all()) == 2
 
 
+def test_export_dedupes_repeated_block_within_same_backup(session) -> None:
+    vb = _volume_backup(session)
+    store = MemoryChunkStore()
+    data = b"r" * 100
+    src = FakeVolumeSource(
+        [Extent(offset=0, length=100, exists=True), Extent(offset=100, length=100, exists=True)],
+        {0: data, 100: data},
+    )
+    stats = ExportService(store).export_volume(session, vb, src)
+    assert stats.chunks_new == 1
+    assert stats.chunks_existing == 1
+    assert len(session.scalars(select(Chunk)).all()) == 1
+    assert session.scalar(select(Chunk)).refcount == 2
+    assert len(session.scalars(select(VolumeChunkMap)).all()) == 2
+
+
 def test_export_rollback_on_error(session) -> None:
     vb = _volume_backup(session)
     store = MemoryChunkStore()

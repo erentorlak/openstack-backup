@@ -11,9 +11,9 @@ from osbak.preflight.model import (
 
 
 @register_check
-class OrjinalInstanceYok(Check):
-    kind = CheckKind.CAKISMA
-    name = "orjinal_instance_yok"
+class OriginalInstanceAbsent(Check):
+    kind = CheckKind.CONFLICT
+    name = "original_instance_absent"
     applies_to = frozenset({PlanKind.RESTORE})
 
     def run(self, ctx: PreflightContext) -> CheckResult:

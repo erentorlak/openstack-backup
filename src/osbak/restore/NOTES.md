@@ -31,7 +31,7 @@ Tuzaklar:
 ## Plan 6 (CLI + servis)
 - Iki fazli: `RestoreService.plan` RestoreOp(state=PLANNED, plan/options JSONB) yazar;
   `apply` sakli adimlari yurutur. §15: op.state != PLANNED veya restore point silindi -> RestorePlanError("yeniden plan").
-- preflight: OrjinalInstanceYok (PlanKind.RESTORE) — orijinal instance live'da mevcut -> FAILED + RestorePreflightFailed.
+- preflight: OriginalInstanceAbsent (PlanKind.RESTORE) — orijinal instance live'da mevcut -> FAILED + RestorePreflightFailed.
 - executor execute(op, plan) — op'yu kendisi acmaz; EXECUTING->DONE/FAILED. JSON mapping bitiste dict(mapping) yeni nesne.
 - CLI: restore plan/apply/show; canli mutasyon SDKRestoreGateway NotImplementedError (provider milestone).
 - Model: RestoreOp.plan + options (JSONB) — MEVCUT DB'ye init_db create_all kolon EKLEMEZ; ALTER TABLE RESTORE_OPS ADD COLUMN plan JSON; ADD COLUMN options JSON; gereklidir (yeni kurulumda otomatik).

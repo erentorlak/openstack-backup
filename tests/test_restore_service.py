@@ -11,7 +11,7 @@ from tests.test_restore_planner import make_manifest
 
 def _seed_point(session, manifest, instance_uuid="orig-uuid"):
     # NOT: make_manifest(): instance dict'inde "id" YOK; apply, manifest["instance"]["id"]
-    # okur (OrjinalInstanceYok icin) -> test manifestine id enjekte edilir.
+    # okur (OriginalInstanceAbsent icin) -> test manifestine id enjekte edilir.
     manifest = dict(manifest)
     manifest["instance"] = dict(manifest["instance"])
     manifest["instance"]["id"] = instance_uuid
@@ -84,6 +84,9 @@ def test_apply_executes_to_done(session) -> None:
     assert result.state == "DONE"
     assert result.server_id is not None
     assert len(mut.created["servers"]) == 1
+    # expire_all: ayni session'da in-memory mutasyonun degil, COMMIT sonrasi
+    # DB'den yeniden okunan JSONB'nin persist oldugunu dogrular.
+    session.expire_all()
     op = session.get(RestoreOp, op_id)
     assert op.mapping["server"] == result.server_id
 
@@ -102,10 +105,10 @@ def test_apply_preflight_fails_when_original_running(session) -> None:
         svc.apply(op_id)
         assert False
     except RestorePreflightFailed as exc:
-        assert any(r.name == "orjinal_instance_yok" and not r.passed for r in exc.report.results)
+        assert any(r.name == "original_instance_absent" and not r.passed for r in exc.report.results)
     op = session.get(RestoreOp, op_id)
     assert op.state == "FAILED"
-    assert "orjinal_instance_yok" in op.error
+    assert "original_instance_absent" in op.error
 
 
 def test_apply_rejects_non_planned(session) -> None:

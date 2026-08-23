@@ -8,7 +8,7 @@ from tests.fake_gateway import FakeGateway
 
 @register_check
 class AlwaysPass(Check):
-    kind = CheckKind.DURUM
+    kind = CheckKind.STATE
     name = "always_pass"
     applies_to = frozenset({PlanKind.SNAPSHOT, PlanKind.BACKUP})
 
@@ -18,7 +18,7 @@ class AlwaysPass(Check):
 
 @register_check
 class SnapshotOnlyCheck(Check):
-    kind = CheckKind.ERISIM
+    kind = CheckKind.ACCESS
     name = "snapshot_only"
     applies_to = frozenset({PlanKind.SNAPSHOT})
 
@@ -60,7 +60,7 @@ def test_duplicate_registration_is_atomic() -> None:
 
         @register_check
         class PartialProbe(Check):
-            kind = CheckKind.ERISIM
+            kind = CheckKind.ACCESS
             name = "snapshot_only"
             applies_to = frozenset({PlanKind.RESTORE, PlanKind.SNAPSHOT})
 
