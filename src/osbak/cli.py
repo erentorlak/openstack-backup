@@ -9,7 +9,10 @@ from osbak.config import Settings
 from osbak.db import create_engine_by_url, init_db, make_session_factory
 from osbak.discovery.gateway import SDKGateway
 from osbak.discovery.service import DiscoveryService
+from osbak.models import RestoreOp
 from osbak.providers.base import ProviderUnavailable
+from osbak.restore.model import RestoreOptions, RestoreStrategy
+from osbak.restore.restore_service import RestoreService
 from osbak.snapshot.service import SnapshotOptions, SnapshotService
 
 
@@ -121,6 +124,103 @@ def snapshot_take(ctx: click.Context, instance_uuid: str, consistent: bool) -> N
             f"restore_point={result.restore_point_id} "
             f"volumes={result.volumes_snapshotted} consistent={result.consistent}"
         )
+    finally:
+        session.close()
+        engine.dispose()
+
+
+def _restore_gateway_factory(conn):
+    from osbak.restore.gateway_mutations import SDKRestoreGateway
+
+    return SDKRestoreGateway(conn)
+
+
+def _make_session(settings: Settings):
+    engine = create_engine_by_url(settings.database.url)
+    init_db(engine)
+    return engine, make_session_factory(engine)()
+
+
+@main.group()
+def restore() -> None:
+    """Restore komutlari (iki fazli: plan -> apply)."""
+
+
+@restore.command("plan")
+@click.argument("restore_point_id", type=int)
+@click.option("--strategy", type=click.Choice(["rebuild"]), default="rebuild")
+@click.option("--no-keep-ip", is_flag=True, default=False)
+@click.option("--name", "instance_name", default=None, type=str)
+@click.option("--az", "availability_zone", default=None, type=str)
+@click.pass_context
+def restore_plan(
+    ctx: click.Context,
+    restore_point_id: int,
+    strategy: str,
+    no_keep_ip: bool,
+    instance_name: str | None,
+    availability_zone: str | None,
+) -> None:
+    settings: Settings = ctx.obj
+    engine, session = _make_session(settings)
+    try:
+        options = RestoreOptions(
+            strategy=RestoreStrategy(strategy),
+            instance_name=instance_name,
+            availability_zone=availability_zone,
+            keep_ip=not no_keep_ip,
+        )
+        service = RestoreService(session, None, lambda: None)
+        op_id = service.plan(restore_point_id, options)
+        op = session.get(RestoreOp, op_id)
+        if op is None:
+            click.echo(f"restore_op={op_id} state=PLANNED strategy={strategy}")
+        else:
+            plan = op.plan
+            click.echo(
+                f"restore_op={op_id} state=PLANNED strategy={strategy} "
+                f"steps={len(plan['steps'])} resource_delta={plan['resource_delta']}"
+            )
+    finally:
+        session.close()
+        engine.dispose()
+
+
+@restore.command("apply")
+@click.argument("restore_op_id", type=int)
+@click.pass_context
+def restore_apply(ctx: click.Context, restore_op_id: int) -> None:
+    settings: Settings = ctx.obj
+    engine, session = _make_session(settings)
+    conn = _build_connection(settings)
+    gateway = SDKGateway(conn)
+    try:
+        service = RestoreService(session, gateway, lambda: _restore_gateway_factory(conn))
+        result = service.apply(restore_op_id)
+        server = result.server_id or "-"
+        click.echo(f"restore_op={result.restore_op_id} state={result.state} server={server}")
+    finally:
+        session.close()
+        engine.dispose()
+
+
+@restore.command("show")
+@click.argument("restore_op_id", type=int)
+@click.pass_context
+def restore_show(ctx: click.Context, restore_op_id: int) -> None:
+    import json
+
+    settings: Settings = ctx.obj
+    engine, session = _make_session(settings)
+    try:
+        service = RestoreService(session, None, lambda: None)
+        op = service.show(restore_op_id)
+        click.echo(json.dumps({
+            "id": op.id, "state": op.state, "strategy": op.strategy,
+            "error": op.error, "finished_at": op.finished_at.isoformat()
+            if op.finished_at else None,
+            "mapping": op.mapping,
+        }, sort_keys=True))
     finally:
         session.close()
         engine.dispose()
