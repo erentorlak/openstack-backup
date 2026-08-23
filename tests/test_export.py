@@ -57,6 +57,8 @@ def test_export_single_block(session) -> None:
     c = session.scalar(select(Chunk))
     assert c is not None and c.refcount == 1
     assert store.exists(c.chunk_hash)
+    assert store.get(c.chunk_hash) == data
+    assert vb.object_manifest == [{"hash": c.chunk_hash, "offset": 0, "length": 100}]
 
 
 def test_export_dedupes_second_backup(session) -> None:
@@ -84,6 +86,10 @@ def test_export_skips_zero_extents(session) -> None:
     assert stats.chunks_new == 1
     assert len(session.scalars(select(VolumeChunkMap)).all()) == 1
     assert session.scalar(select(VolumeChunkMap)).offset_bytes == 50
+    m = session.scalar(select(VolumeChunkMap))
+    chunk = session.scalar(select(Chunk).where(Chunk.chunk_hash == m.chunk_hash))
+    assert chunk is not None
+    assert store.get(chunk.chunk_hash) == b"z" * 50
 
 
 def test_export_rejects_non_t0(session) -> None:
@@ -108,14 +114,23 @@ def test_export_rollback_on_error(session) -> None:
     vb = _volume_backup(session)
     store = MemoryChunkStore()
 
-    class _BadSource:
+    class _PartialThenFails:
+        def __init__(self):
+            self._calls = 0
+
         def iter_extents(self):
-            return [Extent(offset=0, length=10, exists=True)]
+            return [
+                Extent(offset=0, length=10, exists=True),
+                Extent(offset=10, length=10, exists=True),
+            ]
 
         def read(self, extent):
-            raise RuntimeError("read failed")
+            if extent.offset == 0:
+                return b"a" * 10
+            raise RuntimeError("read failed on second extent")
 
     with pytest.raises(RuntimeError):
-        ExportService(store).export_volume(session, vb, _BadSource())
+        ExportService(store).export_volume(session, vb, _PartialThenFails())
     assert len(session.scalars(select(Chunk)).all()) == 0  # kısmi satır yok
+    assert len(session.scalars(select(VolumeChunkMap)).all()) == 0
     assert vb.tier == "t0"  # değişmedi

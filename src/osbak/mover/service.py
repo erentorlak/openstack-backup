@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from osbak.mover.chunker import DEFAULT_BLOCK_SIZE, Extent, chunk_hash, split_bytes
+from osbak.mover.chunker import DEFAULT_BLOCK_SIZE, chunk_hash, split_bytes
 from osbak.mover.source import VolumeSource
 from osbak.mover.store import ChunkStore
 from osbak.models import Chunk, VolumeBackup, VolumeChunkMap
@@ -49,6 +49,8 @@ class ExportService:
                     continue
                 data = source.read(extent)
                 for part in split_bytes(data, extent.offset, self._block_size):
+                    if not (extent.offset <= part.offset < extent.offset + len(data)):
+                        raise AssertionError("split_bytes offset invariant broken")
                     i = part.offset - extent.offset
                     part_data = data[i : i + part.length]
                     h = chunk_hash(part_data)
