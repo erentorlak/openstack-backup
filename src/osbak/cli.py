@@ -9,6 +9,7 @@ from osbak.config import Settings
 from osbak.db import create_engine_by_url, init_db, make_session_factory
 from osbak.discovery.gateway import SDKGateway
 from osbak.discovery.service import DiscoveryService
+from osbak.providers.base import ProviderUnavailable
 from osbak.snapshot.service import SnapshotOptions, SnapshotService
 
 
@@ -99,7 +100,7 @@ def _provider_factory(driver: str):
     if "rbd" in driver:
         from osbak.providers.ceph import CephProvider
         return CephProvider()
-    raise NotImplementedError(f"bilinmeyen driver: {driver}")
+    raise ProviderUnavailable(f"bilinmeyen driver: {driver}")
 
 
 @main.command("snapshot-take")
