@@ -152,18 +152,34 @@ def test_snapshot_take_wires_options(monkeypatch, tmp_path) -> None:
 
 def test_restore_plan_wires_options(monkeypatch, tmp_path) -> None:
     from osbak import cli
+    from osbak.models import RestoreOp
     from osbak.restore.model import RestoreOptions, RestoreStrategy
 
     captured: dict = {}
 
     class _RestoreStub:
-        def __init__(self, session, gateway, factory): ...
+        def __init__(self, session, gateway, factory):
+            self._session = session
 
         def plan(self, restore_point_id, options, created_by=None):
             captured["rp"] = restore_point_id
             captured["strategy"] = options.strategy
             captured["name"] = options.instance_name
-            return 7
+            op = RestoreOp(
+                restore_point_id=restore_point_id,
+                strategy=options.strategy.value,
+                state="PLANNED",
+                mapping={},
+                plan={"strategy": options.strategy.value,
+                      "steps": [{"seq": 0, "action": "create_server",
+                                 "key": "server", "payload": {}}],
+                      "resource_delta": {"servers": 1}},
+                options={"strategy": options.strategy.value, "instance_name": options.instance_name,
+                         "availability_zone": None, "keep_ip": options.keep_ip},
+            )
+            self._session.add(op)
+            self._session.commit()
+            return op.id
 
     monkeypatch.setattr(cli, "RestoreService", lambda session, gw, f: _RestoreStub(session, gw, f))
     cfg = tmp_path / "config.yaml"
@@ -179,7 +195,9 @@ def test_restore_plan_wires_options(monkeypatch, tmp_path) -> None:
     assert captured["rp"] == 42
     assert captured["strategy"] is RestoreStrategy.REBUILD
     assert captured["name"] == "web-x"
-    assert "restore_op=7" in result.output
+    assert "restore_op=" in result.output
+    assert "steps=1" in result.output
+    assert "resource_delta={'servers': 1}" in result.output
 
 
 def test_restore_apply_wires_op_id(monkeypatch, tmp_path) -> None:

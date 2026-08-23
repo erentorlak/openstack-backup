@@ -172,15 +172,11 @@ def restore_plan(
         )
         service = RestoreService(session, None, lambda: None)
         op_id = service.plan(restore_point_id, options)
-        op = session.get(RestoreOp, op_id)
-        if op is None:
-            click.echo(f"restore_op={op_id} state=PLANNED strategy={strategy}")
-        else:
-            plan = op.plan
-            click.echo(
-                f"restore_op={op_id} state=PLANNED strategy={strategy} "
-                f"steps={len(plan['steps'])} resource_delta={plan['resource_delta']}"
-            )
+        plan = session.get(RestoreOp, op_id).plan
+        click.echo(
+            f"restore_op={op_id} state=PLANNED strategy={strategy} "
+            f"steps={len(plan['steps'])} resource_delta={plan['resource_delta']}"
+        )
     finally:
         session.close()
         engine.dispose()
