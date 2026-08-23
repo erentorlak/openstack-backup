@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import copy
 from datetime import datetime, timezone
 from typing import Any
 
@@ -20,21 +19,15 @@ class RebuildExecutor:
         self._gateway = gateway
         self._session = session
 
-    def execute(self, plan: RestorePlan, created_by: str | None = None) -> dict[str, Any]:
-        # NOT: JSON kolona AYNI NESNE ICI mutasyon izlenmez (MutableDict yok).
-        # mapping lokal dict olarak kurulur; INSERT aninda SNAPSHOT olarak
-        # deepcopy yazilir (dict() sıg kopyasi ic dict'leri paylasirdi, JSON
-        # kolonun deger-esitligi karsilastirmasi FAILED yarim mapping'ini
-        # silerdi), bitiste op.mapping'e YENI nesne atanir.
+    def execute(self, op: RestoreOp, plan: RestorePlan) -> dict[str, Any]:
+        # NOT: op'yu BU MODUL YOKARATMAZ — service PLANNED olarak yaratir (iki fazli).
+        # JSON kolona ayni-nesne ici mutasyon izlenmez (MutableDict yok).
+        # EXECUTING'de mapping YAZILMAZ (op.mapping PLANNED'den {} kalir) — bitiste
+        # op.mapping'e YENI nesne (dict(mapping)) atanir; PLANNED'deki {} ile deger
+        # farkli oldugundan SQLAlchemy degisikligi algilar. EXECUTING'de bos-sema
+        # snapshot'i yazmak ic-ref paylasimi yuzunden deger-esitligini bozardi (M5 tuzağı).
         mapping: dict[str, Any] = {"volumes": {}, "ports": {}, "security_groups": {}}
-        op = RestoreOp(
-            restore_point_id=plan.restore_point_id,
-            strategy=plan.strategy.value,
-            state="EXECUTING",
-            mapping=copy.deepcopy(mapping),
-            created_by=created_by,
-        )
-        self._session.add(op)
+        op.state = "EXECUTING"
         self._session.commit()
 
         resolved: dict[str, str] = {}

@@ -148,3 +148,106 @@ def test_snapshot_take_wires_options(monkeypatch, tmp_path) -> None:
     assert captured["uuid"] == "i-1"
     assert captured["consistent"] is True
     assert "restore_point=7" in result.output
+
+
+def test_restore_plan_wires_options(monkeypatch, tmp_path) -> None:
+    from osbak import cli
+    from osbak.models import RestoreOp
+    from osbak.restore.model import RestoreOptions, RestoreStrategy
+
+    captured: dict = {}
+
+    class _RestoreStub:
+        def __init__(self, session, gateway, factory):
+            self._session = session
+
+        def plan(self, restore_point_id, options, created_by=None):
+            captured["rp"] = restore_point_id
+            captured["strategy"] = options.strategy
+            captured["name"] = options.instance_name
+            op = RestoreOp(
+                restore_point_id=restore_point_id,
+                strategy=options.strategy.value,
+                state="PLANNED",
+                mapping={},
+                plan={"strategy": options.strategy.value,
+                      "steps": [{"seq": 0, "action": "create_server",
+                                 "key": "server", "payload": {}}],
+                      "resource_delta": {"servers": 1}},
+                options={"strategy": options.strategy.value, "instance_name": options.instance_name,
+                         "availability_zone": None, "keep_ip": options.keep_ip},
+            )
+            self._session.add(op)
+            self._session.commit()
+            return op.id
+
+    monkeypatch.setattr(cli, "RestoreService", lambda session, gw, f: _RestoreStub(session, gw, f))
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(
+        "keystone:\n  auth_url: https://x\n  username: u\n  password: p\n"
+        "  project_name: svc\n  project_domain_name: default\n  user_domain_name: default\n"
+        f"database:\n  url: sqlite:///{tmp_path}/osbak.db\n"
+    )
+    runner = CliRunner()
+    result = runner.invoke(main, ["--config", str(cfg), "restore", "plan",
+                                  "--name", "web-x", "42"])
+    assert result.exit_code == 0
+    assert captured["rp"] == 42
+    assert captured["strategy"] is RestoreStrategy.REBUILD
+    assert captured["name"] == "web-x"
+    assert "restore_op=" in result.output
+    assert "steps=1" in result.output
+    assert "resource_delta={'servers': 1}" in result.output
+
+
+def test_restore_apply_wires_op_id(monkeypatch, tmp_path) -> None:
+    from osbak import cli
+    from osbak.restore.restore_service import RestoreApplyResult
+
+    captured: dict = {}
+
+    class _RestoreStub:
+        def __init__(self, session, gateway, factory): ...
+
+        def apply(self, restore_op_id, created_by=None):
+            captured["op"] = restore_op_id
+            return RestoreApplyResult(restore_op_id=1, state="DONE", server_id="s-9")
+
+    monkeypatch.setattr(cli, "RestoreService", lambda session, gw, f: _RestoreStub(session, gw, f))
+    monkeypatch.setattr(cli, "_build_connection", lambda settings: object())
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(
+        "keystone:\n  auth_url: https://x\n  username: u\n  password: p\n"
+        "  project_name: svc\n  project_domain_name: default\n  user_domain_name: default\n"
+        f"database:\n  url: sqlite:///{tmp_path}/osbak.db\n"
+    )
+    runner = CliRunner()
+    result = runner.invoke(main, ["--config", str(cfg), "restore", "apply", "1"])
+    assert result.exit_code == 0
+    assert captured["op"] == 1
+    assert "state=DONE server=s-9" in result.output
+
+
+def test_restore_show_prints_op(monkeypatch, tmp_path) -> None:
+    from osbak import cli
+    from osbak.models import RestoreOp
+
+    class _RestoreStub:
+        def __init__(self, session, gateway, factory): ...
+
+        def show(self, restore_op_id):
+            return RestoreOp(id=5, restore_point_id=1, strategy="rebuild",
+                             state="DONE", mapping={"server": "s-1"})
+
+    monkeypatch.setattr(cli, "RestoreService", lambda session, gw, f: _RestoreStub(session, gw, f))
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(
+        "keystone:\n  auth_url: https://x\n  username: u\n  password: p\n"
+        "  project_name: svc\n  project_domain_name: default\n  user_domain_name: default\n"
+        f"database:\n  url: sqlite:///{tmp_path}/osbak.db\n"
+    )
+    runner = CliRunner()
+    result = runner.invoke(main, ["--config", str(cfg), "restore", "show", "5"])
+    assert result.exit_code == 0
+    assert '"state": "DONE"' in result.output
+    assert '"server": "s-1"' in result.output

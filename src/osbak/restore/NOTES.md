@@ -27,3 +27,11 @@ Tuzaklar:
 - Restore edilen volumeler BOŞ: executor source_snapshot=None geçer; chunk-veri maddileştirme (T1 store) henüz bağlı DEĞİL — canlı restore veri yoludur, provider milestone'da gelir.
 - server_groups ve floating IP: spec §8 rebuild sırasında yer alır ama bu planın step kontratı DIŞI (bilinçli); manifest server_groups alanı şu an adımsız düşer.
 - JSON kalıcılığı: INSERT'te op.mapping'e `copy.deepcopy(mapping)` yazılır — `dict(mapping)` SİĞ kopya (iç dict'ler paylaşılır) olduğundan FAILED yarım mapping'i (yalnız iç değişim) SQLAlchemy'nin JSON değer-eşitliği karşılaştırmasında "değişmedi" sayılıp UPDATE'ten düşerdi; DONE genelde dış anahtar eklemesi (flavor/server) yüzünden fark edilmezdi. Bitişte `op.mapping = dict(mapping)` yeterli.
+
+## Plan 6 (CLI + servis)
+- Iki fazli: `RestoreService.plan` RestoreOp(state=PLANNED, plan/options JSONB) yazar;
+  `apply` sakli adimlari yurutur. §15: op.state != PLANNED veya restore point silindi -> RestorePlanError("yeniden plan").
+- preflight: OrjinalInstanceYok (PlanKind.RESTORE) — orijinal instance live'da mevcut -> FAILED + RestorePreflightFailed.
+- executor execute(op, plan) — op'yu kendisi acmaz; EXECUTING->DONE/FAILED. JSON mapping bitiste dict(mapping) yeni nesne.
+- CLI: restore plan/apply/show; canli mutasyon SDKRestoreGateway NotImplementedError (provider milestone).
+- Model: RestoreOp.plan + options (JSONB) — MEVCUT DB'ye init_db create_all kolon EKLEMEZ; ALTER TABLE RESTORE_OPS ADD COLUMN plan JSON; ADD COLUMN options JSON; gereklidir (yeni kurulumda otomatik).

@@ -34,6 +34,10 @@ class CheckResult:
     message: str
     data: dict[str, Any] = field(default_factory=dict)
 
+    @property
+    def passed(self) -> bool:
+        return self.status is CheckStatus.PASS
+
 
 @dataclass(frozen=True)
 class ValidationReport:

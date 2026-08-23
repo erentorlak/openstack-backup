@@ -300,7 +300,7 @@ git commit -m "feat: preflight OrjinalInstanceYok kurali (PlanKind.RESTORE)"
 
 **Neden:** İki fazlı akışta op'yu service (`RestoreService.plan`) PLANNED olarak yaratır; executor op'yu ÜRETMEZ, sadece EXECUTING→DONE/FAILED geçişini yapar. `created_by` parametresi executor'dan çıkar (service.plan'a taşınır).
 
-**JSON kalıcılık deseni (korunur):** op zaten DB'de (PLANNED, mapping={}); executor lokal `mapping` kurar, bitişte `op.mapping = dict(mapping)` (YENİ nesne) → SQLAlchemy değişikliği algılar. `copy` importu executor'dan kalkar (INSERT artık burada yok). EXECUTING anında `op.mapping = dict(mapping)` (boş şema yazılır) + commit; DONE/FAILED'da dolu `dict(mapping)` → fark algılanır.
+**JSON kalıcılık deseni (korunur):** op zaten DB'de (PLANNED, mapping={}); executor lokal `mapping` kurar, bitişte `op.mapping = dict(mapping)` (YENİ nesne) → SQLAlchemy değişikliği algılar. `copy` importu executor'dan kalkar (INSERT artık burada yok). EXECUTING anında mapping YAZILMAZ (op.mapping PLANNED'den `{}` kalır); yalnızca bitişte (DONE/FAILED) dolu `dict(mapping)` YENİ nesne olarak atanır → PLANNED'deki `{}` ile fark algılanır.
 
 - [ ] **Step 1: Failing test**
 
@@ -1113,7 +1113,7 @@ def _make_session(settings: Settings):
 - Model: RestoreOp.plan + options (JSONB) — MEVCUT DB'ye init_db create_all kolon EKLEMEZ; ALTER TABLE RESTORE_OPS ADD COLUMN plan JSON; ADD COLUMN options JSON; gereklidir (yeni kurulumda otomatik).
 ```
 
-- [ ] **Step 6: Tam paket** — `python -m pytest -q` → tümü pass (98 + 8 yeni = 106 civarı) → kanıtla-bitti (çıktı göster).
+- [ ] **Step 6: Tam paket** — `python -m pytest -q` → tümü pass (baseline 111 + CLI 3 = 114 civarı) → kanıtla-bitti (çıktı göster).
 
 - [ ] **Step 7: Commit**
 
