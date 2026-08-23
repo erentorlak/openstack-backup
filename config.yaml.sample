@@ -1,0 +1,11 @@
+keystone:
+  auth_url: https://keystone.example.com:5000/v3
+  project_name: osbak-svc
+  project_domain_name: default
+  user_domain_name: default
+  username: osbak-svc
+  password: CHANGE_ME
+  region_name: ""
+database:
+  url: sqlite:///osbak.db
+projects: []

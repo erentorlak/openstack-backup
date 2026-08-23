@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "osbak"
+version = "0.1.0"
+description = "Agentless OpenStack backup/restore/snapshot (Ceph + NetApp)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+dependencies = [
+  "openstacksdk>=3.0",
+  "SQLAlchemy>=2.0",
+  "pydantic>=2.5",
+  "PyYAML>=6.0",
+  "click>=8.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-cov>=5.0"]
+
+[project.scripts]
+osbak = "osbak.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+pythonpath = ["src"]
