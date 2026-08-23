@@ -18,7 +18,7 @@
 - `VolumeBackup.tier` "t1"e taşınır; `object_manifest` = JSON listesi `[{"hash", "offset", "length"}, ...]` (katalog kaybı durumunda manifestin portability'si; T2 Plan 8'de).
 - `ExportService.export_volume` çağrısı: verileri source'tan extent bazlı okur, bloklar halinde işler, store+database senkrone. Hata durumunda `session.rollback()` (kısmi chunk/refcount satırı kalmaz) — görünür, sessiz değil.
 - Gerçek S3/Ceph canlı kod yolları (S3ChunkStore, CephRbdSource) birim test listesi DIŞI — canlı ortam doğrulaması (NOTES). Bunların yerine saf çekirdek (chunker/dedup/db yazımı) MemoryChunkStore + FakeVolumeSource ile test edilir.
-- No live infra; tests: test_chunker.py, test_store.py (MemoryChunkStore sadece tests/), test_export.py.
+- No live infra; tests: test_chunker.py, test_export.py (store roundtrip + source contract + export burada; MemoryChunkStore sadece tests/).
 - `models.Chunk.chunk_hash` PK kolonu adı "hash" (attribute chunk_hash); `VolumeChunkMap(chunk_hash FK → chunks.hash)`.
 - Manifest/offload ayrımı: bu plan VolumeBackup (tür=backup değil, offload) — snapshot → export akışını Plan 3'ün SnapshotService'i çağırır (engine wiring sonraki milestone). Bu plan yalnızca ExportService.
 
