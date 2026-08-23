@@ -188,9 +188,9 @@ def restore_plan(
 def restore_apply(ctx: click.Context, restore_op_id: int) -> None:
     settings: Settings = ctx.obj
     engine, session = _make_session(settings)
-    conn = _build_connection(settings)
-    gateway = SDKGateway(conn)
     try:
+        conn = _build_connection(settings)
+        gateway = SDKGateway(conn)
         service = RestoreService(session, gateway, lambda: _restore_gateway_factory(conn))
         result = service.apply(restore_op_id)
         server = result.server_id or "-"

@@ -25,7 +25,7 @@ class OrjinalInstanceYok(Check):
                 if server.id == uuid:
                     return CheckResult(
                         self.name, self.kind, CheckStatus.FAIL,
-                        f"orijinal instance hala mevcut: {uuid} — once sil/durdur",
+                        f"orijinal instance hala mevcut: {uuid} — once sil",
                     )
         return CheckResult(self.name, self.kind, CheckStatus.PASS,
                            "orijinal instance yok — rebuild uygun")
