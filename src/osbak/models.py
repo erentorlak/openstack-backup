@@ -1,12 +1,16 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from osbak.db import Base
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class Project(Base):
@@ -22,7 +26,7 @@ class Instance(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     instance_uuid: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"))
-    last_seen_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     project: Mapped["Project"] = relationship(back_populates="instances")
     volumes: Mapped[list["VolumeRef"]] = relationship(back_populates="instance")
 
@@ -46,7 +50,7 @@ class RestorePoint(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     kind: Mapped[str] = mapped_column(String(16))
     instance_id: Mapped[int] = mapped_column(ForeignKey("instances.id"))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     policy_id: Mapped[Optional[int]] = mapped_column(ForeignKey("policies.id"), nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="active")
     manifest: Mapped[dict[str, Any]] = mapped_column(JSON)
@@ -112,6 +116,6 @@ class RestoreOp(Base):
     state: Mapped[str] = mapped_column(String(32))
     mapping: Mapped[dict[str, Any]] = mapped_column(JSON)
     created_by: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     error: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
