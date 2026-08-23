@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from datetime import datetime, timezone
 from typing import Any
 
@@ -21,13 +22,16 @@ class RebuildExecutor:
 
     def execute(self, plan: RestorePlan, created_by: str | None = None) -> dict[str, Any]:
         # NOT: JSON kolona AYNI NESNE ICI mutasyon izlenmez (MutableDict yok).
-        # mapping lokal dict olarak kurulur, bitiste op.mapping'e YENI nesne atanir.
+        # mapping lokal dict olarak kurulur; INSERT aninda SNAPSHOT olarak
+        # deepcopy yazilir (dict() sıg kopyasi ic dict'leri paylasirdi, JSON
+        # kolonun deger-esitligi karsilastirmasi FAILED yarim mapping'ini
+        # silerdi), bitiste op.mapping'e YENI nesne atanir.
         mapping: dict[str, Any] = {"volumes": {}, "ports": {}, "security_groups": {}}
         op = RestoreOp(
             restore_point_id=plan.restore_point_id,
             strategy=plan.strategy.value,
             state="EXECUTING",
-            mapping=dict(mapping),
+            mapping=copy.deepcopy(mapping),
             created_by=created_by,
         )
         self._session.add(op)
@@ -45,7 +49,15 @@ class RebuildExecutor:
                     mapping["security_groups"][payload["name"]] = sid
                 elif step.action == "add_security_group_rules":
                     sg_key = payload["security_group_key"]
-                    self._gateway.add_security_group_rules(resolved[sg_key], payload["rules"])
+                    translated_rules = []
+                    for rule in payload["rules"]:
+                        r = dict(rule)
+                        if "remote_group_name" in r:
+                            r["remote_group_id"] = mapping["security_groups"][
+                                r.pop("remote_group_name")
+                            ]
+                        translated_rules.append(r)
+                    self._gateway.add_security_group_rules(resolved[sg_key], translated_rules)
                 elif step.action == "create_volume":
                     vid = self._gateway.create_volume(
                         payload["name"], payload["size_gb"], payload["volume_type"],
@@ -83,8 +95,6 @@ class RebuildExecutor:
                     mapping["server"] = sid
                 else:
                     raise RestorePlanError(f"bilinmeyen adim: {step.action}")
-        except RestorePlanError:
-            raise
         except Exception as exc:  # noqa: BLE001 - teardown+re-raise (AGENTS izinli kalip)
             op.mapping = dict(mapping)
             op.state = "FAILED"

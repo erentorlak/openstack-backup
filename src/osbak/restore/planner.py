@@ -36,10 +36,21 @@ class RestorePlanner:
             seq += 1
 
         for sg in manifest["security_groups"]:
+            translated_rules = []
+            for rule in sg["rules"]:
+                r = dict(rule)
+                rgid = r.get("remote_group_id")
+                if rgid:
+                    name = sg_id_to_name.get(rgid)
+                    if name is None:
+                        raise RestorePlanError(f"bilinmeyen uzak grup: {rgid}")
+                    del r["remote_group_id"]
+                    r["remote_group_name"] = name
+                translated_rules.append(r)
             steps.append(PlanStep(
                 seq=seq, action="add_security_group_rules",
                 key=f"sg_rules:{sg['name']}",
-                payload={"security_group_key": f"sg:{sg['name']}", "rules": sg["rules"]},
+                payload={"security_group_key": f"sg:{sg['name']}", "rules": translated_rules},
             ))
             seq += 1
 

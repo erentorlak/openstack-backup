@@ -33,6 +33,43 @@ def make_manifest() -> dict:
     }
 
 
+def make_manifest_with_group_ref() -> dict:
+    manifest = make_manifest()
+    manifest["security_groups"] = [
+        {"id": "sg-old-1", "name": "web", "description": "web rules", "rules": [
+            {"direction": "ingress", "protocol": "tcp", "ether_type": "IPv4",
+             "port_range_min": 80, "port_range_max": 80,
+             "remote_ip_prefix": "0.0.0.0/0", "remote_group_id": None},
+        ]},
+        {"id": "sg-old-2", "name": "db", "description": "db rules", "rules": [
+            {"direction": "ingress", "protocol": "tcp", "ether_type": "IPv4",
+             "port_range_min": 3306, "port_range_max": 3306,
+             "remote_ip_prefix": None, "remote_group_id": "sg-old-1"},
+        ]},
+    ]
+    return manifest
+
+
+def test_build_translates_remote_group_id_to_name() -> None:
+    plan = RestorePlanner(make_manifest_with_group_ref(),
+                          RestoreOptions(strategy=RestoreStrategy.REBUILD), 1).build()
+    db_step = next(s for s in plan.steps
+                   if s.action == "add_security_group_rules" and s.key == "sg_rules:db")
+    rule = db_step.payload["rules"][0]
+    assert rule["remote_group_name"] == "web"
+    assert "remote_group_id" not in rule
+
+
+def test_build_rejects_unknown_remote_group_id() -> None:
+    manifest = make_manifest_with_group_ref()
+    manifest["security_groups"][1]["rules"][0]["remote_group_id"] = "sg-unknown"
+    try:
+        RestorePlanner(manifest, RestoreOptions(strategy=RestoreStrategy.REBUILD), 1).build()
+        assert False
+    except RestorePlanError as exc:
+        assert "bilinmeyen uzak grup" in str(exc)
+
+
 def test_build_shells_come_before_rules() -> None:
     plan = RestorePlanner(make_manifest(), RestoreOptions(strategy=RestoreStrategy.REBUILD), 1).build()
     actions = [s.action for s in plan.steps]
