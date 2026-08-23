@@ -58,6 +58,17 @@ def test_instance_mevcut_pass_and_data() -> None:
     assert report.results[0].data["server_id"] == "i-1"
 
 
+def test_instance_mevcut_populates_ctx() -> None:
+    server = ServerInfo(id="i-1", name="web", project_id="pid-1", status="ACTIVE", flavor_id="f-1")
+    gateway = FakeGateway(
+        projects=[ProjectInfo(id="pid-1", name="a")],
+        servers={"pid-1": [server]},
+    )
+    ctx = PreflightContext(plan_kind=PlanKind.SNAPSHOT, gateway=gateway, instance_uuid="i-1")
+    ValidationEngine().validate(PlanKind.SNAPSHOT, ctx, only=["instance_mevcut"])
+    assert ctx.data["project_id"] == "pid-1"
+
+
 def test_instance_mevcut_fail_when_missing() -> None:
     gateway = FakeGateway(projects=[ProjectInfo(id="pid-1", name="a")], servers={"pid-1": []})
     ctx = PreflightContext(

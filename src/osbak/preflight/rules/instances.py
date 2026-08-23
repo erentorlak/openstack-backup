@@ -19,6 +19,7 @@ class InstanceMevcut(Check):
             for server in ctx.gateway.list_servers(project.id):
                 if server.id == uuid:
                     ctx.data["server"] = server
+                    ctx.data["project_id"] = project.id
                     return CheckResult(
                         self.name,
                         self.kind,
