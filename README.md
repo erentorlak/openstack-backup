@@ -24,3 +24,13 @@ geliştirilecektir — her katman LLM için dokümante edilmiş olmalı.
 - `docs/specs/2026-08-23-osbak-architecture.md` — mimari spec (tek doğruluk kaynağı)
 - `docs/adr/` — karar kayıtları (ADR-001: rollback stratejileri)
 - `docs/discipline.md` — çalışma disiplini protokolü
+- `docs/plans/2026-08-23-milestone1.md` — Milestone 1 uygulama planı
+
+## Başlarken (Milestone 1)
+
+```bash
+python -m venv .venv && . .venv/bin/activate
+pip install -e ".[dev]"
+osbak --config config.yaml inventory-refresh
+osbak --config config.yaml manifest-show <instance-uuid>
+```
