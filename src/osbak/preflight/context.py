@@ -11,7 +11,6 @@ from osbak.preflight.model import PlanKind
 class PreflightContext:
     plan_kind: PlanKind
     gateway: OpenstackGateway
-    session: Any = None
     instance_uuid: str | None = None
     project_id: str | None = None
     goal_state: str | None = None

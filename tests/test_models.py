@@ -1,11 +1,13 @@
 from sqlalchemy import inspect
 
-from osbak.db import create_engine_by_url, init_db, make_session_factory
+from sqlalchemy import create_engine
+
+from osbak.db import init_db, make_session_factory
 from osbak.models import Instance, Project, VolumeRef
 
 
 def test_schema_has_all_tables() -> None:
-    engine = create_engine_by_url("sqlite://")
+    engine = create_engine("sqlite://")
     init_db(engine)
     tables = set(inspect(engine).get_table_names())
     expected = {
@@ -17,7 +19,7 @@ def test_schema_has_all_tables() -> None:
 
 
 def test_roundtrip_project_instance_volume() -> None:
-    engine = create_engine_by_url("sqlite://")
+    engine = create_engine("sqlite://")
     init_db(engine)
     session = make_session_factory(engine)()
     try:

@@ -6,9 +6,9 @@ from osbak.preflight.model import CheckKind, CheckResult, CheckStatus, PlanKind
 
 
 @register_check
-class InstanceMevcut(Check):
-    kind = CheckKind.DURUM
-    name = "instance_mevcut"
+class InstancePresent(Check):
+    kind = CheckKind.STATE
+    name = "instance_present"
     applies_to = frozenset({PlanKind.SNAPSHOT, PlanKind.BACKUP, PlanKind.ROLLBACK})
 
     def run(self, ctx: PreflightContext) -> CheckResult:
@@ -31,9 +31,9 @@ class InstanceMevcut(Check):
 
 
 @register_check
-class InstanceDurum(Check):
-    kind = CheckKind.DURUM
-    name = "instance_durum"
+class InstanceState(Check):
+    kind = CheckKind.STATE
+    name = "instance_state"
     applies_to = frozenset({PlanKind.SNAPSHOT, PlanKind.BACKUP})
 
     def run(self, ctx: PreflightContext) -> CheckResult:

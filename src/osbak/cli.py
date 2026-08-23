@@ -6,7 +6,9 @@ import click
 import openstack
 
 from osbak.config import Settings
-from osbak.db import create_engine_by_url, init_db, make_session_factory
+from sqlalchemy import create_engine
+
+from osbak.db import init_db, make_session_factory
 from osbak.discovery.gateway import SDKGateway
 from osbak.discovery.service import DiscoveryService
 from osbak.models import RestoreOp
@@ -64,7 +66,7 @@ def _apply_project_filter(gateway, project_names: list[str]) -> list[str] | None
 def inventory_refresh(ctx: click.Context) -> None:
     settings: Settings = ctx.obj
     gateway = SDKGateway(_build_connection(settings))
-    engine = create_engine_by_url(settings.database.url)
+    engine = create_engine(settings.database.url)
     init_db(engine)
     session = make_session_factory(engine)()
     try:
@@ -113,7 +115,7 @@ def _provider_factory(driver: str):
 def snapshot_take(ctx: click.Context, instance_uuid: str, consistent: bool) -> None:
     settings: Settings = ctx.obj
     gateway = SDKGateway(_build_connection(settings))
-    engine = create_engine_by_url(settings.database.url)
+    engine = create_engine(settings.database.url)
     init_db(engine)
     session = make_session_factory(engine)()
     try:
@@ -136,7 +138,7 @@ def _restore_gateway_factory(conn):
 
 
 def _make_session(settings: Settings):
-    engine = create_engine_by_url(settings.database.url)
+    engine = create_engine(settings.database.url)
     init_db(engine)
     return engine, make_session_factory(engine)()
 

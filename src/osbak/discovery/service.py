@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from osbak.discovery.gateway import OpenstackGateway, parse_host
+from osbak.discovery.gateway import OpenstackGateway, boot_index_for, parse_host
 from osbak.models import Instance, Project, VolumeRef, _utcnow
 
 
@@ -22,16 +22,13 @@ class DiscoveryService:
 
     def refresh(self, session: Session, project_ids: list[str] | None = None) -> DiscoveryResult:
         result = DiscoveryResult()
+        projects_n = instances_n = volumes_n = 0
         projects = self._gateway.list_projects()
         for info in projects:
             if project_ids is not None and info.id not in project_ids:
                 continue
             project = self._get_or_create_project(session, info)
-            result = DiscoveryResult(
-                projects=result.projects + 1,
-                instances=result.instances,
-                volumes=result.volumes,
-            )
+            projects_n += 1
             volumes = self._gateway.list_volumes(info.id)
             by_server: dict[str, list[str]] = {}
             volume_by_id = {v.id: v for v in volumes}
@@ -40,21 +37,17 @@ class DiscoveryService:
                     by_server.setdefault(att.server_id, []).append(volume.id)
             for server in self._gateway.list_servers(info.id):
                 instance = self._get_or_create_instance(session, project, server)
-                result = DiscoveryResult(
-                    projects=result.projects,
-                    instances=result.instances + 1,
-                    volumes=result.volumes,
-                )
+                instances_n += 1
                 for volume_id in by_server.get(server.id, []):
                     volume = volume_by_id[volume_id]
                     self._get_or_create_volume_ref(session, instance, volume)
-                    result = DiscoveryResult(
-                        projects=result.projects,
-                        instances=result.instances,
-                        volumes=result.volumes + 1,
-                    )
+                    volumes_n += 1
         session.commit()
-        return result
+        return DiscoveryResult(
+            projects=projects_n,
+            instances=instances_n,
+            volumes=volumes_n,
+        )
 
     def _get_or_create_project(self, session: Session, info) -> Project:
         row = session.scalar(select(Project).where(Project.keystone_project_id == info.id))
@@ -86,7 +79,7 @@ class DiscoveryService:
             row = VolumeRef(
                 instance_id=instance.id,
                 volume_uuid=info.id,
-                boot_index=0 if info.bootable else -1,
+                boot_index=boot_index_for(info.bootable),
                 size_gb=info.size,
                 volume_type=info.volume_type or None,
                 backend=host.driver,
@@ -95,7 +88,7 @@ class DiscoveryService:
             session.add(row)
             session.flush()
         else:
-            row.boot_index = 0 if info.bootable else -1
+            row.boot_index = boot_index_for(info.bootable)
             row.size_gb = info.size
             row.volume_type = info.volume_type or None
             row.backend = host.driver

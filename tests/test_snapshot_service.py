@@ -189,6 +189,56 @@ def test_snapshot_fails_without_catalog_instance(session) -> None:
     gw = _gateway(server, volume)
     _RecordingProvider.snapshot_calls = []
     service = SnapshotService(gw, _factory)
-    with pytest.raises(SnapshotPreflightFailed):
+    with pytest.raises(SnapshotPreflightFailed) as exc:
         service.snapshot_instance(session, "i-1", SnapshotOptions(require_consistent=False))
     assert _RecordingProvider.snapshot_calls == []  # snapshot hiç yapılmadı
+    assert "katalogda instance yok" in str(exc.value)
+
+
+def test_snapshot_preflight_error_carries_cause(session) -> None:
+    _seed_catalog(session)
+    server, volume = _server(), _volume()
+    gw = _gateway(server, volume)
+    service = SnapshotService(gw, lambda driver: (_ for _ in ()).throw(ProviderUnavailable(driver)))
+    with pytest.raises(SnapshotPreflightFailed) as exc:
+        service.snapshot_instance(session, "i-1", SnapshotOptions(require_consistent=False))
+    assert "provider yok" in str(exc.value)
+
+
+def test_snapshot_cleans_created_refs_on_partial_failure(session) -> None:
+    _seed_catalog(session)
+    server = _server()
+    v_root = _volume()
+    v_data = VolumeInfo(
+        id="v-data", name="data", size=50, volume_type="ssd", status="in-use",
+        bootable=False, host="node@rbd-2#pool-b", project_id="pid-1",
+        attachments=(VolumeAttachment(server_id="i-1", device="/dev/vdb",
+                                      attachment_id="a-2", volume_id="v-data"),),
+    )
+    gw = FakeGateway(
+        projects=[ProjectInfo(id="pid-1", name="a")],
+        servers={"pid-1": [server]},
+        volumes={"pid-1": [v_root, v_data]},
+        flavors={"f-1": FlavorInfo(id="f-1", name="m", vcpus=1, ram=1, disk=10,
+                                   ephemeral=0, swap=0, is_public=True)},
+    )
+    _RecordingProvider.delete_calls = []
+
+    class _BoomProvider(_RecordingProvider):
+        def snapshot(self, target, name_prefix):
+            raise RuntimeError("snapshot failed")
+
+    def factory(driver: str):
+        if driver == "rbd-1":
+            return _RecordingProvider()
+        if driver == "rbd-2":
+            return _BoomProvider()
+        raise ProviderUnavailable(f"bilinmeyen driver: {driver}")
+
+    with pytest.raises(RuntimeError):
+        SnapshotService(gw, factory).snapshot_instance(
+            session, "i-1", SnapshotOptions(require_consistent=True)
+        )
+    assert gw._unquiesced == ["i-1"]
+    assert _RecordingProvider.delete_calls == ["v-root"]
+    assert len(session.scalars(select(RestorePoint)).all()) == 0  # kısmi kayıt yok

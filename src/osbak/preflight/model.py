@@ -13,12 +13,12 @@ class PlanKind(str, enum.Enum):
 
 
 class CheckKind(str, enum.Enum):
-    ERISIM = "erisim"
-    KAPASITE = "kapasite"
-    DURUM = "durum"
-    YETKINLIK = "yetkinlik"
+    ACCESS = "access"
+    CAPACITY = "capacity"
+    STATE = "state"
+    PERMISSION = "permission"
     LIMIT = "limit"
-    CAKISMA = "cakisma"
+    CONFLICT = "conflict"
 
 
 class CheckStatus(str, enum.Enum):

@@ -16,5 +16,8 @@ Tuzaklar:
   Gerçek rbd diff / boto3 çağrıları canlı ortamda doğrulanır.
 - re-export aynı volume_backup üzerinde yapılmaz (VolumeChunkMap tek yazım); incremental
   zincir yeni VolumeBackup satırlarıyla ilerler (engine wiring Plan 7).
+- Aynı export içinde aynı chunk tekrar gelirse: new Chunk add'inden sonra `session.flush()`
+  şart — sessionmaker autoflush=False, scalar() bekleyen INSERT'i görmez; flush yoksa
+  duplicate satır → UNIQUE ihlali (fix: review bulgusu + test).
 - boto3 bağımlılığı opsiyoneldir; T1'siz kurulum mover store'suz çalışabilir
   (canlı kurulumda `osbak[t1]`).

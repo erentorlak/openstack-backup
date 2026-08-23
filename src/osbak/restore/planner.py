@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 from osbak.restore.model import (
     PlanStep,
     RestoreOptions,
@@ -9,6 +7,16 @@ from osbak.restore.model import (
     RestorePlanError,
     RestoreStrategy,
 )
+
+
+def _order_bdm(block_device_mapping: list[dict]) -> list[dict]:
+    """Nova BDM sirasi: boot cihazi (boot_index 0) ONDE, digerleri stabil sirada.
+
+    Manifest'te bootable=0, digerleri -1 (builder.py); ascending `sorted(boot_index)`
+    -1'i onceye alir ve yanlis volumeden boot edilirdi. Boot=0 once, -1 sonra,
+    sirasiyla (stabil).
+    """
+    return sorted(block_device_mapping, key=lambda b: 0 if b["boot_index"] == 0 else 1)
 
 
 class RestorePlanner:
@@ -54,7 +62,7 @@ class RestorePlanner:
             ))
             seq += 1
 
-        for bdm in sorted(manifest["block_device_mapping"], key=lambda b: b["boot_index"]):
+        for bdm in _order_bdm(manifest["block_device_mapping"]):
             steps.append(PlanStep(
                 seq=seq, action="create_volume",
                 key=f"vol:{bdm['volume_id']}",
@@ -104,7 +112,7 @@ class RestorePlanner:
                 "name": self._options.instance_name or instance["name"],
                 "flavor_key": "flavor",
                 "volume_keys": [f"vol:{b['volume_id']}"
-                                for b in sorted(manifest["block_device_mapping"], key=lambda b: b["boot_index"])],
+                                for b in _order_bdm(manifest["block_device_mapping"])],
                 "port_keys": [f"port:{p['id']}" for p in ports],
                 "security_group_names": [sg["name"] for sg in manifest["security_groups"]],
                 "availability_zone": self._options.availability_zone or instance.get("availability_zone"),

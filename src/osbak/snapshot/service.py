@@ -30,12 +30,17 @@ class SnapshotResult:
 
 
 class SnapshotPreflightFailed(Exception):
-    def __init__(self, report: ValidationReport) -> None:
+    def __init__(
+        self,
+        report: ValidationReport | None = None,
+        message: str | None = None,
+    ) -> None:
         self.report = report
-        super().__init__(
-            "preflight basarisiz: "
-            + "; ".join(f"{r.name}/{r.status.value}" for r in report.results)
+        detail = message if message is not None else (
+            "; ".join(f"{r.name}/{r.status.value}" for r in report.results)
+            if report is not None else ""
         )
+        super().__init__("preflight basarisiz: " + detail)
 
 
 class SnapshotService:
@@ -73,7 +78,7 @@ class SnapshotService:
         )
         if instance_row is None:
             raise SnapshotPreflightFailed(
-                ValidationReport(plan_kind=PlanKind.SNAPSHOT),
+                message=f"katalogda instance yok: {server.id}",
             )
 
         targets: list[tuple[SnapshotTarget, SnapshotProvider]] = []
@@ -82,11 +87,13 @@ class SnapshotService:
                 continue
             host = parse_host(volume.host)
             if host.pool is None:
-                raise SnapshotPreflightFailed(ValidationReport(plan_kind=PlanKind.SNAPSHOT))
+                raise SnapshotPreflightFailed(
+                    message=f"volume pool'u yok: {volume.id} ({volume.host})",
+                )
             try:
                 provider = self._provider_factory(host.driver or "")
             except ProviderUnavailable as exc:
-                raise SnapshotPreflightFailed(ValidationReport(plan_kind=PlanKind.SNAPSHOT)) from exc
+                raise SnapshotPreflightFailed(message=f"provider yok: {exc}") from exc
             targets.append(
                 (
                     SnapshotTarget(
@@ -99,12 +106,18 @@ class SnapshotService:
                 )
             )
 
-        refs: list[SnapshotRef] = []
+        created: list[tuple[SnapshotProvider, SnapshotRef]] = []
         try:
             if options.require_consistent:
                 self._gateway.quiesce_guest(server.id)
             for target, provider in targets:
-                refs.append(provider.snapshot(target, "bkp-"))
+                created.append((provider, provider.snapshot(target, "bkp-")))
+        except Exception:
+            # Kismi sizinti: bir volume snapshot'i patlarsa, once basarilan ref'ler
+            # best-effort silinir (teardown), sonra orijinal hata yeniden firlatilir.
+            for provider, ref in created:
+                provider.delete(ref)
+            raise
         finally:
             if options.require_consistent:
                 self._gateway.unquiesce_guest(server.id)
@@ -117,7 +130,7 @@ class SnapshotService:
         session.add(restore_point)
         session.flush()
 
-        for (target, provider), ref in zip(targets, refs, strict=True):
+        for (target, provider), (_, ref) in zip(targets, created, strict=True):
             volume_ref = session.scalar(
                 select(VolumeRef).where(
                     VolumeRef.instance_id == instance_row.id,
@@ -136,6 +149,6 @@ class SnapshotService:
         session.commit()
         return SnapshotResult(
             restore_point_id=restore_point.id,
-            volumes_snapshotted=len(refs),
+            volumes_snapshotted=len(created),
             consistent=options.require_consistent,
         )

@@ -9,6 +9,10 @@ Neden:
 - Quiesce: `require_consistent` ise batch freeze; unquiesce HER ZAMAN (finally —
   zorunlu teardown, fallback değil). `allow_crash` ise quiesce yok.
 - Restore-point manifest'i ManifestBuilder çıktısı; objek-store kopyası T1'de (Plan 4).
+- Kismi sizinti: coklu-volume snaphot'unda sonraki patlarsa, once basarilan ref'ler
+  best-effort `provider.delete(ref)` ile silinir (teardown), orijinal hata re-raise.
+- `SnapshotPreflightFailed` neden tasir: katalog instance yok / pool yok / provider yok
+  bos report yerine `message=` ile gercek nedeni gosterir (test: carries_cause).
 
 Tuzaklar:
 - Provider yok → `ProviderUnavailable` → `SnapshotPreflightFailed` (sessiz "boşta kal" yok).

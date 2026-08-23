@@ -22,29 +22,29 @@ class _BoomGateway:
         raise RuntimeError("boom")
 
 
-def test_keystone_erisim_pass() -> None:
+def test_keystone_access_pass() -> None:
     ctx = PreflightContext(
         plan_kind=PlanKind.SNAPSHOT,
         gateway=FakeGateway(projects=[ProjectInfo(id="pid-1", name="a")]),
     )
-    report = ValidationEngine().validate(PlanKind.SNAPSHOT, ctx, only=["keystone_erisim"])
+    report = ValidationEngine().validate(PlanKind.SNAPSHOT, ctx, only=["keystone_access"])
     assert report.results[0].status is CheckStatus.PASS
     assert report.results[0].data["projects"] == 1
 
 
-def test_keystone_erisim_fail_on_sdk_error() -> None:
+def test_keystone_access_fail_on_sdk_error() -> None:
     ctx = PreflightContext(plan_kind=PlanKind.SNAPSHOT, gateway=_SdkErrorGateway())
-    report = ValidationEngine().validate(PlanKind.SNAPSHOT, ctx, only=["keystone_erisim"])
+    report = ValidationEngine().validate(PlanKind.SNAPSHOT, ctx, only=["keystone_access"])
     assert report.results[0].status is CheckStatus.FAIL
 
 
 def test_non_sdk_exception_propagates() -> None:
     ctx = PreflightContext(plan_kind=PlanKind.SNAPSHOT, gateway=_BoomGateway())
     with pytest.raises(RuntimeError):
-        ValidationEngine().validate(PlanKind.SNAPSHOT, ctx, only=["keystone_erisim"])
+        ValidationEngine().validate(PlanKind.SNAPSHOT, ctx, only=["keystone_access"])
 
 
-def test_instance_mevcut_pass_and_data() -> None:
+def test_instance_present_pass_and_data() -> None:
     server = ServerInfo(id="i-1", name="web", project_id="pid-1", status="ACTIVE", flavor_id="f-1")
     gateway = FakeGateway(
         projects=[ProjectInfo(id="pid-1", name="a")],
@@ -53,39 +53,39 @@ def test_instance_mevcut_pass_and_data() -> None:
     ctx = PreflightContext(
         plan_kind=PlanKind.SNAPSHOT, gateway=gateway, instance_uuid="i-1"
     )
-    report = ValidationEngine().validate(PlanKind.SNAPSHOT, ctx, only=["instance_mevcut"])
+    report = ValidationEngine().validate(PlanKind.SNAPSHOT, ctx, only=["instance_present"])
     assert report.results[0].status is CheckStatus.PASS
     assert report.results[0].data["server_id"] == "i-1"
 
 
-def test_instance_mevcut_populates_ctx() -> None:
+def test_instance_present_populates_ctx() -> None:
     server = ServerInfo(id="i-1", name="web", project_id="pid-1", status="ACTIVE", flavor_id="f-1")
     gateway = FakeGateway(
         projects=[ProjectInfo(id="pid-1", name="a")],
         servers={"pid-1": [server]},
     )
     ctx = PreflightContext(plan_kind=PlanKind.SNAPSHOT, gateway=gateway, instance_uuid="i-1")
-    ValidationEngine().validate(PlanKind.SNAPSHOT, ctx, only=["instance_mevcut"])
+    ValidationEngine().validate(PlanKind.SNAPSHOT, ctx, only=["instance_present"])
     assert ctx.data["project_id"] == "pid-1"
 
 
-def test_instance_mevcut_fail_when_missing() -> None:
+def test_instance_present_fail_when_missing() -> None:
     gateway = FakeGateway(projects=[ProjectInfo(id="pid-1", name="a")], servers={"pid-1": []})
     ctx = PreflightContext(
         plan_kind=PlanKind.SNAPSHOT, gateway=gateway, instance_uuid="nope"
     )
-    report = ValidationEngine().validate(PlanKind.SNAPSHOT, ctx, only=["instance_mevcut"])
+    report = ValidationEngine().validate(PlanKind.SNAPSHOT, ctx, only=["instance_present"])
     assert report.results[0].status is CheckStatus.FAIL
 
 
-def test_instance_mevcut_fail_when_none() -> None:
+def test_instance_present_fail_when_none() -> None:
     gateway = FakeGateway(projects=[ProjectInfo(id="pid-1", name="a")])
     ctx = PreflightContext(plan_kind=PlanKind.SNAPSHOT, gateway=gateway)
-    report = ValidationEngine().validate(PlanKind.SNAPSHOT, ctx, only=["instance_mevcut"])
+    report = ValidationEngine().validate(PlanKind.SNAPSHOT, ctx, only=["instance_present"])
     assert report.results[0].status is CheckStatus.FAIL
 
 
-def test_instance_durum_pass_and_fail() -> None:
+def test_instance_state_pass_and_fail() -> None:
     server = ServerInfo(id="i-1", name="web", project_id="pid-1", status="ACTIVE", flavor_id="f-1")
     gateway = FakeGateway(
         projects=[ProjectInfo(id="pid-1", name="a")],
@@ -98,7 +98,7 @@ def test_instance_durum_pass_and_fail() -> None:
         goal_state="ACTIVE",
     )
     report = ValidationEngine().validate(
-        PlanKind.SNAPSHOT, ctx, only=["instance_mevcut", "instance_durum"]
+        PlanKind.SNAPSHOT, ctx, only=["instance_present", "instance_state"]
     )
     assert report.passed is True
     fail_ctx = PreflightContext(
@@ -108,6 +108,6 @@ def test_instance_durum_pass_and_fail() -> None:
         goal_state="STOPPED",
     )
     fail_report = ValidationEngine().validate(
-        PlanKind.SNAPSHOT, fail_ctx, only=["instance_mevcut", "instance_durum"]
+        PlanKind.SNAPSHOT, fail_ctx, only=["instance_present", "instance_state"]
     )
     assert any(r.status is CheckStatus.FAIL for r in fail_report.results)

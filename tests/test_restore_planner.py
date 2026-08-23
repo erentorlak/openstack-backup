@@ -88,6 +88,20 @@ def test_build_volume_keys_ordered_by_boot() -> None:
     assert server["volume_keys"] == ["vol:v-root", "vol:v-data"]
 
 
+def test_build_boot_device_first_with_real_boot_indices() -> None:
+    manifest = make_manifest()
+    manifest["block_device_mapping"] = [
+        {"volume_id": "v-root", "size": 10, "volume_type": "ssd", "boot_index": 0},
+        {"volume_id": "v-data", "size": 50, "volume_type": "ssd", "boot_index": -1},
+    ]
+    opts = RestoreOptions(strategy=RestoreStrategy.REBUILD)
+    plan = RestorePlanner(manifest, opts, 1).build()
+    server = plan.steps[-1].payload
+    assert server["volume_keys"] == ["vol:v-root", "vol:v-data"]
+    vol_steps = [s for s in plan.steps if s.action == "create_volume"]
+    assert [s.key for s in vol_steps] == ["vol:v-root", "vol:v-data"]
+
+
 def test_build_port_fixed_ip_respects_keep_ip() -> None:
     opts = RestoreOptions(strategy=RestoreStrategy.REBUILD, keep_ip=True)
     plan = RestorePlanner(make_manifest(), opts, 1).build()

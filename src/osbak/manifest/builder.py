@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from osbak.discovery.gateway import OpenstackGateway, ServerInfo, parse_host
+from osbak.discovery.gateway import OpenstackGateway, ServerInfo, boot_index_for, parse_host
 
 
 class ManifestBuilder:
@@ -75,7 +75,7 @@ class ManifestBuilder:
         host = parse_host(volume.host)
         return {
             "volume_id": volume.id,
-            "boot_index": 0 if volume.bootable else -1,
+            "boot_index": boot_index_for(volume.bootable),
             "size": volume.size,
             "volume_type": volume.volume_type or "",
             "backend": host.driver or "",

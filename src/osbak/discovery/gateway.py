@@ -19,6 +19,11 @@ def parse_host(host: str) -> HostInfo:
     return HostInfo(host=node, driver=driver, pool=pool if sep2 else None)
 
 
+def boot_index_for(bootable: bool) -> int:
+    """Nova BDM boot_index: bootable volume 0, digerleri -1 (tek dogru kaynak)."""
+    return 0 if bootable else -1
+
+
 @dataclass(frozen=True)
 class ProjectInfo:
     id: str

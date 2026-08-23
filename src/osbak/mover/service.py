@@ -37,15 +37,12 @@ class ExportService:
         if volume_backup.tier != "t0":
             raise ValueError("yalnızca T0 volume backup'ı export edilebilir")
 
-        stats = ExportStats()
+        chunks_new = chunks_existing = bytes_written = extents_skipped = 0
         manifest: list[dict] = []
         try:
             for extent in source.iter_extents():
                 if not extent.exists:
-                    stats = ExportStats(
-                        stats.chunks_new, stats.chunks_existing,
-                        stats.bytes_written, stats.extents_skipped + 1,
-                    )
+                    extents_skipped += 1
                     continue
                 data = source.read(extent)
                 for part in split_bytes(data, extent.offset, self._block_size):
@@ -60,16 +57,15 @@ class ExportService:
                     if chunk_row is None:
                         self._store.put(h, part_data)
                         session.add(Chunk(chunk_hash=h, size_bytes=len(part_data), refcount=1))
-                        stats = ExportStats(
-                            stats.chunks_new + 1, stats.chunks_existing,
-                            stats.bytes_written + len(part_data), stats.extents_skipped,
-                        )
+                        # autoflush=False: scalar() yeni INSERT'i görmez; flush() ayni
+                        # transaction içinde satiri gorunur yapar -> ayni export'ta tekrar
+                        # gelen ayni hash refcount++ olur, IntegrityError alinmaz.
+                        session.flush()
+                        chunks_new += 1
+                        bytes_written += len(part_data)
                     else:
                         chunk_row.refcount += 1
-                        stats = ExportStats(
-                            stats.chunks_new, stats.chunks_existing + 1,
-                            stats.bytes_written, stats.extents_skipped,
-                        )
+                        chunks_existing += 1
                     session.add(
                         VolumeChunkMap(
                             volume_backup_id=volume_backup.id,
@@ -85,4 +81,9 @@ class ExportService:
         except Exception:
             session.rollback()
             raise
-        return stats
+        return ExportStats(
+            chunks_new=chunks_new,
+            chunks_existing=chunks_existing,
+            bytes_written=bytes_written,
+            extents_skipped=extents_skipped,
+        )
