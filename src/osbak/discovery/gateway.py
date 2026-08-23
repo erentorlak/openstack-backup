@@ -128,6 +128,8 @@ class OpenstackGateway(Protocol):
     def list_server_groups(self, project_id: str) -> list[ServerGroupInfo]: ...
     def list_flavors(self) -> dict[str, FlavorInfo]: ...
     def get_flavor(self, flavor_id: str) -> FlavorInfo | None: ...
+    def quiesce_guest(self, server_id: str) -> None: ...
+    def unquiesce_guest(self, server_id: str) -> None: ...
 
 
 def project_from_dict(d: dict[str, Any]) -> ProjectInfo:
@@ -281,3 +283,22 @@ class SDKGateway:
     def get_flavor(self, flavor_id: str) -> FlavorInfo | None:
         flavor = self._conn.compute.find_flavor(flavor_id, get_extra_specs=True)
         return None if flavor is None else flavor_from_dict(flavor.to_dict())
+
+    def quiesce_guest(self, server_id: str) -> None:
+        endpoint = self._conn.get_endpoint(service_type="compute")
+        resp = self._conn.session.post(
+            f"{endpoint}/servers/{server_id}/action",
+            json={"os-quiesce": {}},
+        )
+        if resp.status_code >= 400:
+            raise RuntimeError(f"quiesce failed: {resp.status_code}")
+
+    def unquiesce_guest(self, server_id: str) -> None:
+        endpoint = self._conn.get_endpoint(service_type="compute")
+        resp = self._conn.session.post(
+            f"{endpoint}/servers/{server_id}/action",
+            json={"os-unquiesce": {}},
+        )
+        if resp.status_code >= 400:
+            raise RuntimeError(f"unquiesce failed: {resp.status_code}")
+

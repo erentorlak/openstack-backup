@@ -30,6 +30,8 @@ class FakeGateway(OpenstackGateway):
         self._security_groups = security_groups or {}
         self._server_groups = server_groups or {}
         self._flavors = flavors or {}
+        self._quiesced: list[str] = []
+        self._unquiesced: list[str] = []
 
     def list_projects(self) -> list[ProjectInfo]:
         return list(self._projects)
@@ -56,3 +58,9 @@ class FakeGateway(OpenstackGateway):
 
     def get_flavor(self, flavor_id: str) -> FlavorInfo | None:
         return self._flavors.get(flavor_id)
+
+    def quiesce_guest(self, server_id: str) -> None:
+        self._quiesced.append(server_id)
+
+    def unquiesce_guest(self, server_id: str) -> None:
+        self._unquiesced.append(server_id)
