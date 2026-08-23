@@ -118,3 +118,33 @@ def test_inventory_refresh_unknown_project_raises(monkeypatch, tmp_path) -> None
     result = CliRunner().invoke(main, ["--config", str(cfg), "inventory-refresh"])
     assert result.exit_code != 0
     assert "not found" in result.output
+
+
+def test_snapshot_take_wires_options(monkeypatch, tmp_path) -> None:
+    from osbak import cli
+    from osbak.snapshot.service import SnapshotResult
+
+    captured: dict = {}
+
+    class _Stub:
+        def snapshot_instance(self, session, instance_uuid, options):
+            captured["uuid"] = instance_uuid
+            captured["consistent"] = options.require_consistent
+            return SnapshotResult(restore_point_id=7, volumes_snapshotted=2,
+                                  consistent=options.require_consistent)
+
+    monkeypatch.setattr(cli, "_build_connection", lambda settings: object())
+    monkeypatch.setattr(cli, "SDKGateway", lambda conn: FakeGateway(projects=[]))
+    monkeypatch.setattr(cli, "SnapshotService", lambda gw, pf: _Stub())
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(
+        "keystone:\n  auth_url: https://x\n  username: u\n  password: p\n"
+        f"  project_name: svc\n  project_domain_name: default\n  user_domain_name: default\n"
+        f"database:\n  url: sqlite:///{tmp_path}/osbak.db\n"
+    )
+    runner = CliRunner()
+    result = runner.invoke(main, ["--config", str(cfg), "snapshot-take", "--consistent", "i-1"])
+    assert result.exit_code == 0
+    assert captured["uuid"] == "i-1"
+    assert captured["consistent"] is True
+    assert "restore_point=7" in result.output

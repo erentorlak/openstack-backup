@@ -9,6 +9,7 @@ from osbak.config import Settings
 from osbak.db import create_engine_by_url, init_db, make_session_factory
 from osbak.discovery.gateway import SDKGateway
 from osbak.discovery.service import DiscoveryService
+from osbak.snapshot.service import SnapshotOptions, SnapshotService
 
 
 @click.group()
@@ -92,3 +93,33 @@ def manifest_show(ctx: click.Context, instance_uuid: str) -> None:
                 click.echo(json.dumps(manifest, indent=2, sort_keys=True))
                 return
     raise click.ClickException(f"instance not found: {instance_uuid}")
+
+
+def _provider_factory(driver: str):
+    if "rbd" in driver:
+        from osbak.providers.ceph import CephProvider
+        return CephProvider()
+    raise NotImplementedError(f"bilinmeyen driver: {driver}")
+
+
+@main.command("snapshot-take")
+@click.argument("instance_uuid")
+@click.option("--consistent", is_flag=True, default=False)
+@click.pass_context
+def snapshot_take(ctx: click.Context, instance_uuid: str, consistent: bool) -> None:
+    settings: Settings = ctx.obj
+    gateway = SDKGateway(_build_connection(settings))
+    engine = create_engine_by_url(settings.database.url)
+    init_db(engine)
+    session = make_session_factory(engine)()
+    try:
+        result = SnapshotService(gateway, _provider_factory).snapshot_instance(
+            session, instance_uuid, SnapshotOptions(require_consistent=consistent)
+        )
+        click.echo(
+            f"restore_point={result.restore_point_id} "
+            f"volumes={result.volumes_snapshotted} consistent={result.consistent}"
+        )
+    finally:
+        session.close()
+        engine.dispose()
