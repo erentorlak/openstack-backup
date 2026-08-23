@@ -195,6 +195,25 @@ def test_snapshot_fails_without_catalog_instance(session) -> None:
     assert "katalogda instance yok" in str(exc.value)
 
 
+def test_snapshot_cleans_refs_on_manifest_build_failure(session) -> None:
+    _seed_catalog(session)
+    server, volume = _server(), _volume()
+    gw = _gateway(server, volume)
+    _RecordingProvider.delete_calls = []
+
+    class _BoomBuilder:
+        def build(self, project_id, server):
+            raise RuntimeError("manifest build failed")
+
+    with pytest.raises(RuntimeError):
+        SnapshotService(gw, _factory, manifest_builder=_BoomBuilder()).snapshot_instance(
+            session, "i-1", SnapshotOptions(require_consistent=True)
+        )
+    assert _RecordingProvider.delete_calls == ["v-root"]  # snapshot ref temizlendi
+    assert gw._unquiesced == ["i-1"]  # teardown her zaman
+    assert len(session.scalars(select(RestorePoint)).all()) == 0  # kısmi kayıt rollback
+
+
 def test_snapshot_preflight_error_carries_cause(session) -> None:
     _seed_catalog(session)
     server, volume = _server(), _volume()

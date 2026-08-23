@@ -16,9 +16,11 @@ Tuzaklar:
 - Kapasite/yetkinlik/limit incelemeleri provider milestone'larında gelir
   (CheckKind hazır); resource_delta restore/snapshot milestone'ında dolar.
 - Fallback kuralı: çok-anahtar okuma yok; "instance yok" FAIL'dır, istisna değil.
-- `only` boş/uygunsuz sonuç üretebilir: `validate(BACKUP, only=["snapshot_only"])` → 0 sonuç ama
-  `passed=True` (vacuously green). Apply öncesi yeniden-doğrulama bunu kullanmadan önce
-  semantik kararlaştırılmalı (bilinmeyen ad → hata, veya boş rapor → pass değil).
+- `only` bilinmeyen adlarla sıfır sonuç üretirse `ValueError` (vacuously-green footgun
+  engellendi, engine'de — test: only_with_unknown_name_raises). Kısmi uygunluk (bazı adlar
+  bu plan_kind'e uygulanmaz) yine uygulananları koşar; sonuç boşsa asla rapor dönmez.
+- Ortak tarama: `ctx.find_server(uuid)` (project_id, server) veya None döner; hem
+  `instance_present` hem `original_instance_absent` buradan okur (tekrar eden döngü yok).
 - `only=["instance_state"]` yalnız başına `ctx.data["server"]`'ı okur — taze ctx'te spurious
   FAIL üretir. Apply aynı plan-zamanı ctx'ini yeniden kullanmalı (veya durum check'i kendini
   fetch etmeli).

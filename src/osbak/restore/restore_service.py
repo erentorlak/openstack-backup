@@ -56,6 +56,13 @@ class RestoreService:
         self._gateway = gateway
         self._restore_gateway_factory = restore_gateway_factory
 
+    def _mark_failed(self, op: RestoreOp, error: str) -> None:
+        # Tek yer: apply'in tum hata dallari op'yu FAILED isaretler ve commit eder.
+        op.state = "FAILED"
+        op.error = error
+        op.finished_at = _utcnow()
+        self._session.commit()
+
     def plan(
         self,
         restore_point_id: int,
@@ -93,10 +100,7 @@ class RestoreService:
 
         point = self._session.get(RestorePoint, op.restore_point_id)
         if point is None:
-            op.state = "FAILED"
-            op.error = "restore point silinmis"
-            op.finished_at = _utcnow()
-            self._session.commit()
+            self._mark_failed(op, "restore point silinmis")
             raise RestorePlanError("restore point silinmis — yeniden plan")
 
         manifest = point.manifest
@@ -108,12 +112,12 @@ class RestoreService:
         )
         report = ValidationEngine().validate(PlanKind.RESTORE, ctx)
         if not report.passed:
-            op.state = "FAILED"
-            op.error = "preflight: " + "; ".join(
-                f"{r.name}/{r.status.value}" for r in report.results
+            self._mark_failed(
+                op,
+                "preflight: " + "; ".join(
+                    f"{r.name}/{r.status.value}" for r in report.results
+                ),
             )
-            op.finished_at = _utcnow()
-            self._session.commit()
             raise RestorePreflightFailed(report)
 
         op.state = "PREFLIGHT_PASS"
@@ -122,10 +126,7 @@ class RestoreService:
         try:
             rplan = plan_from_dict(op.plan)
         except (KeyError, TypeError, ValueError) as exc:
-            op.state = "FAILED"
-            op.error = "plan verisi bozuk — yeniden plan"
-            op.finished_at = _utcnow()
-            self._session.commit()
+            self._mark_failed(op, "plan verisi bozuk — yeniden plan")
             raise RestorePlanError("plan verisi bozuk — yeniden plan") from exc
 
         mapping = RebuildExecutor(

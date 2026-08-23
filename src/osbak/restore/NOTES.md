@@ -22,7 +22,8 @@ Tuzaklar:
   security_groups için ad (idempotent ensure ad ile çalışır).
 - Remote grup referansı: 2-geçiş — kural `remote_group_id` (eski id) planner'da `.remote_group_name`'e çevrilir, executor yeni id'ye çözer; bilinmeyen id → RestorePlanError (sessiz skip YOK).
 - AZ asimetrisi (bilinçli, provider milestone'a): create_volume yalnız options.availability_zone kullanır; create_server instance.availability_zone'a düşer — real manifest'te volume farklı AZ'a düşebilir.
-- Sessiz SG skip portta: manifest security_group listesinde olmayan port SG'si düşer (builder wanted_sg_ids invariant'ı sayesinde bugün ulaşılamaz); provider milestone'da plan-time RestorePlanError önerilir.
+- Sessiz SG skip portta YOK: manifest security_group listesinde olmayan port SG id'si
+  plan-time `RestorePlanError` yukseltir (planner, sessiz yol engellendi — test).
 - boot_index: builder data volumeleri -1 (root 0) verir. Planner `_order_bdm` ile
   boot=0 ONDE, -1 sonra siralar (create_volume step sirasi + volume_keys ikisi de ayni
   helper); ascending `sorted(boot_index)` hataliydi (-1 once gelir, fix: review bulgusu).

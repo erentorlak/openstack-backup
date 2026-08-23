@@ -14,6 +14,9 @@ Neden:
 Tuzaklar:
 - CephRbdSource ve S3ChunkStore canlı kod yollarıdır; birim test KAPSAMI DIŞI (notlive).
   Gerçek rbd diff / boto3 çağrıları canlı ortamda doğrulanır.
+- S3ChunkStore dar hata sözleşmesi: yalnızca HTTP 404 "missing" (get→None, exists→False);
+  403/500 gibi diğer ClientError'lar yükselir — izin/kapanma "chunk yok" diye maskelenmez
+  (fix: review bulgusu; canlıda doğrulanacak).
 - re-export aynı volume_backup üzerinde yapılmaz (VolumeChunkMap tek yazım); incremental
   zincir yeni VolumeBackup satırlarıyla ilerler (engine wiring Plan 7).
 - Aynı export içinde aynı chunk tekrar gelirse: new Chunk add'inden sonra `session.flush()`

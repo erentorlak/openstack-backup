@@ -112,41 +112,43 @@ class SnapshotService:
                 self._gateway.quiesce_guest(server.id)
             for target, provider in targets:
                 created.append((provider, provider.snapshot(target, "bkp-")))
+
+            manifest = self._manifest_builder.build(project_id, server)
+            restore_point = RestorePoint(
+                kind="snapshot", instance_id=instance_row.id, manifest=manifest,
+                status="active",
+            )
+            session.add(restore_point)
+            session.flush()
+
+            for (target, provider), (_, ref) in zip(targets, created, strict=True):
+                volume_ref = session.scalar(
+                    select(VolumeRef).where(
+                        VolumeRef.instance_id == instance_row.id,
+                        VolumeRef.volume_uuid == target.image,
+                    )
+                )
+                session.add(
+                    VolumeBackup(
+                        restore_point_id=restore_point.id,
+                        volume_ref_id=volume_ref.id if volume_ref is not None else None,
+                        snapshot_ref=f"{target.pool}/{target.image}@{ref.snapshot}",
+                        tier="t0",
+                        object_manifest={},
+                    )
+                )
+            session.commit()
         except Exception:
-            # Kismi sizinti: bir volume snapshot'i patlarsa, once basarilan ref'ler
-            # best-effort silinir (teardown), sonra orijinal hata yeniden firlatilir.
+            # Teardown (not a fallback): any error after quiesce — snapshot loop, manifest
+            # build, or DB flush/commit — best-effort deletes the created refs, rolls back
+            # partial DB writes, and re-raises the original error.
             for provider, ref in created:
                 provider.delete(ref)
+            session.rollback()
             raise
         finally:
             if options.require_consistent:
                 self._gateway.unquiesce_guest(server.id)
-
-        manifest = self._manifest_builder.build(project_id, server)
-        restore_point = RestorePoint(
-            kind="snapshot", instance_id=instance_row.id, manifest=manifest,
-            status="active",
-        )
-        session.add(restore_point)
-        session.flush()
-
-        for (target, provider), (_, ref) in zip(targets, created, strict=True):
-            volume_ref = session.scalar(
-                select(VolumeRef).where(
-                    VolumeRef.instance_id == instance_row.id,
-                    VolumeRef.volume_uuid == target.image,
-                )
-            )
-            session.add(
-                VolumeBackup(
-                    restore_point_id=restore_point.id,
-                    volume_ref_id=volume_ref.id if volume_ref is not None else None,
-                    snapshot_ref=f"{target.pool}/{target.image}@{ref.snapshot}",
-                    tier="t0",
-                    object_manifest={},
-                )
-            )
-        session.commit()
         return SnapshotResult(
             restore_point_id=restore_point.id,
             volumes_snapshotted=len(created),

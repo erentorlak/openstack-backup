@@ -17,15 +17,12 @@ class OriginalInstanceAbsent(Check):
     applies_to = frozenset({PlanKind.RESTORE})
 
     def run(self, ctx: PreflightContext) -> CheckResult:
-        uuid = ctx.instance_uuid
-        if uuid is None:
+        if ctx.instance_uuid is None:
             return CheckResult(self.name, self.kind, CheckStatus.FAIL, "instance belirtilmedi")
-        for project in ctx.gateway.list_projects():
-            for server in ctx.gateway.list_servers(project.id):
-                if server.id == uuid:
-                    return CheckResult(
-                        self.name, self.kind, CheckStatus.FAIL,
-                        f"orijinal instance hala mevcut: {uuid} — once sil",
-                    )
+        if ctx.find_server(ctx.instance_uuid) is not None:
+            return CheckResult(
+                self.name, self.kind, CheckStatus.FAIL,
+                f"orijinal instance hala mevcut: {ctx.instance_uuid} — once sil",
+            )
         return CheckResult(self.name, self.kind, CheckStatus.PASS,
                            "orijinal instance yok — rebuild uygun")

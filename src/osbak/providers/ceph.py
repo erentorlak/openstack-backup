@@ -35,10 +35,10 @@ class CephProvider:
             raise ProviderUnavailable("rados python binding kurulu değil (osbak[ceph])")
 
     def snapshot(self, target: SnapshotTarget, name_prefix: str) -> SnapshotRef:
-        # Gerçek rados yolu canlı ortamda doğrulanır (birim test kapsamı dışı).
-        # Çağrı anında: rados = importlib.import_module("rados"); rbd = ...;
-        # Rados().connect → open_ioctx(target.pool) → Image.open(target.image)
-        # → create_snap(<bkp- adı>) — kesin komut canlı doğrulamada netleşecek.
+        # Real rados path verified in a live environment (out of unit-test scope).
+        # At call time: rados = importlib.import_module("rados"); rbd = ...;
+        # Rados().connect -> open_ioctx(target.pool) -> Image.open(target.image)
+        # -> create_snap(<bkp-name>) — exact command finalized in live verification.
         snapshot = snap_name(target.instance_id, _utc_iso(), 1)
         return SnapshotRef(
             provider=self.name,
@@ -49,5 +49,5 @@ class CephProvider:
         )
 
     def delete(self, ref: SnapshotRef) -> None:
-        # canlı ortamda doğrulanacak; remove_snap + deep flatten gerekirse.
+        # Verified in a live environment; remove_snap + deep flatten if needed.
         return None

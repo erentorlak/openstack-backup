@@ -102,6 +102,17 @@ def test_build_boot_device_first_with_real_boot_indices() -> None:
     assert [s.key for s in vol_steps] == ["vol:v-root", "vol:v-data"]
 
 
+def test_plan_rejects_unknown_port_security_group() -> None:
+    manifest = make_manifest()
+    manifest["network"]["ports"][0]["security_group_ids"] = ["sg-unknown"]
+    opts = RestoreOptions(strategy=RestoreStrategy.REBUILD)
+    try:
+        RestorePlanner(manifest, opts, 1).build()
+        assert False, "unknown port SG sessizce dusmemeli"
+    except RestorePlanError as exc:
+        assert "sg-unknown" in str(exc)
+
+
 def test_build_port_fixed_ip_respects_keep_ip() -> None:
     opts = RestoreOptions(strategy=RestoreStrategy.REBUILD, keep_ip=True)
     plan = RestorePlanner(make_manifest(), opts, 1).build()

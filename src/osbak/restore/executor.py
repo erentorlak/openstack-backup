@@ -20,12 +20,12 @@ class RebuildExecutor:
         self._session = session
 
     def execute(self, op: RestoreOp, plan: RestorePlan) -> dict[str, Any]:
-        # NOT: op'yu BU MODUL YOKARATMAZ — service PLANNED olarak yaratir (iki fazli).
-        # JSON kolona ayni-nesne ici mutasyon izlenmez (MutableDict yok).
-        # EXECUTING'de mapping YAZILMAZ (op.mapping PLANNED'den {} kalir) — bitiste
-        # op.mapping'e YENI nesne (dict(mapping)) atanir; PLANNED'deki {} ile deger
-        # farkli oldugundan SQLAlchemy degisikligi algilar. EXECUTING'de bos-sema
-        # snapshot'i yazmak ic-ref paylasimi yuzunden deger-esitligini bozardi (M5 tuzağı).
+        # NOTE: this module does NOT create op — the service creates it as PLANNED (two-phase).
+        # In-place mutation of the JSON column is not tracked (no MutableDict).
+        # mapping is NOT written while EXECUTING (op.mapping stays {} from PLANNED); at the
+        # end a NEW object (dict(mapping)) is assigned to op.mapping so SQLAlchemy sees the
+        # change vs the PLANNED {}. Writing an empty-schema snapshot during EXECUTING would
+        # have broken value-equality due to shared object references (M5 trap).
         mapping: dict[str, Any] = {"volumes": {}, "ports": {}, "security_groups": {}}
         op.state = "EXECUTING"
         self._session.commit()

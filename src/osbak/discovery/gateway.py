@@ -20,7 +20,7 @@ def parse_host(host: str) -> HostInfo:
 
 
 def boot_index_for(bootable: bool) -> int:
-    """Nova BDM boot_index: bootable volume 0, digerleri -1 (tek dogru kaynak)."""
+    """Nova BDM boot_index: bootable volume is 0, others -1 (single source of truth)."""
     return 0 if bootable else -1
 
 
@@ -248,9 +248,9 @@ def server_group_from_dict(d: dict[str, Any]) -> ServerGroupInfo:
 
 
 class SDKGateway:
-    """openstacksdk bağlantısını saran gerçek implementasyon (canlı ortamda çalışır).
+    """Real implementation wrapping the openstacksdk connection (runs on live env).
 
-    Birim test kapsamı DIŞI: onun yerine saf *_from_dict fonksiyonları test edilir.
+    OUT of unit-test scope: the pure *_from_dict functions are tested instead.
     """
 
     def __init__(self, conn: Any) -> None:

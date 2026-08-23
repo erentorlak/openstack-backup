@@ -57,9 +57,9 @@ class ExportService:
                     if chunk_row is None:
                         self._store.put(h, part_data)
                         session.add(Chunk(chunk_hash=h, size_bytes=len(part_data), refcount=1))
-                        # autoflush=False: scalar() yeni INSERT'i görmez; flush() ayni
-                        # transaction içinde satiri gorunur yapar -> ayni export'ta tekrar
-                        # gelen ayni hash refcount++ olur, IntegrityError alinmaz.
+                        # autoflush=False means scalar() can't see the pending INSERT; flush()
+                        # makes the row visible in the same transaction -> a repeated hash in
+                        # the same export bumps refcount instead of hitting the UNIQUE index.
                         session.flush()
                         chunks_new += 1
                         bytes_written += len(part_data)

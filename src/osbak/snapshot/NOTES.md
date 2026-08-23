@@ -9,8 +9,9 @@ Neden:
 - Quiesce: `require_consistent` ise batch freeze; unquiesce HER ZAMAN (finally —
   zorunlu teardown, fallback değil). `allow_crash` ise quiesce yok.
 - Restore-point manifest'i ManifestBuilder çıktısı; objek-store kopyası T1'de (Plan 4).
-- Kismi sizinti: coklu-volume snaphot'unda sonraki patlarsa, once basarilan ref'ler
-  best-effort `provider.delete(ref)` ile silinir (teardown), orijinal hata re-raise.
+- Kismi sizinti YOK: quiesce sonrasi HER hata (snapshot dongusu, manifest build ya da
+  DB flush/commit) olusturulmus ref'leri best-effort `provider.delete(ref)` ile siler,
+  kismi DB yazimini rollback eder, orijinal hata re-raise (teardown; test: cleans_refs_*).
 - `SnapshotPreflightFailed` neden tasir: katalog instance yok / pool yok / provider yok
   bos report yerine `message=` ile gercek nedeni gosterir (test: carries_cause).
 

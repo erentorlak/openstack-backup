@@ -5,7 +5,7 @@ from typing import Protocol
 
 
 class ProviderUnavailable(Exception):
-    """Provider yok ya da kurulu değil (cephx/radon/ONTAP bağımlılığı eksik)."""
+    """Provider missing or not installed (missing cephx/rados/ONTAP dependency)."""
 
 
 @dataclass(frozen=True)

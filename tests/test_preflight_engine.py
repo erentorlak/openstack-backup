@@ -1,5 +1,6 @@
 import pytest
 
+from osbak.discovery.gateway import ProjectInfo, ServerInfo
 from osbak.preflight.context import PreflightContext
 from osbak.preflight.engine import Check, ValidationEngine, checks_for, register_check
 from osbak.preflight.model import CheckKind, CheckResult, CheckStatus, PlanKind
@@ -45,6 +46,37 @@ def test_validate_only_restricts_to_named_checks() -> None:
     ctx = PreflightContext(plan_kind=PlanKind.SNAPSHOT, gateway=FakeGateway(projects=[]))
     report = ValidationEngine().validate(PlanKind.SNAPSHOT, ctx, only=["snapshot_only"])
     assert [r.name for r in report.results] == ["snapshot_only"]
+
+
+def test_validate_only_with_unknown_name_raises() -> None:
+    ctx = PreflightContext(plan_kind=PlanKind.SNAPSHOT, gateway=FakeGateway(projects=[]))
+    with pytest.raises(ValueError):
+        ValidationEngine().validate(PlanKind.SNAPSHOT, ctx, only=["no_such_check"])
+
+
+def test_find_server_locates_and_returns_project() -> None:
+    server = ServerInfo(id="i-1", name="w", project_id="p-1", status="ACTIVE", flavor_id="f-1")
+    gw = FakeGateway(
+        projects=[ProjectInfo(id="p-1", name="a")],
+        servers={"p-1": [server]},
+        volumes={"p-1": []},
+    )
+    ctx = PreflightContext(plan_kind=PlanKind.SNAPSHOT, gateway=gw, instance_uuid="i-1")
+    found = ctx.find_server()
+    assert found is not None
+    project_id, found_server = found
+    assert project_id == "p-1"
+    assert found_server.id == "i-1"
+
+
+def test_find_server_returns_none_when_absent() -> None:
+    gw = FakeGateway(
+        projects=[ProjectInfo(id="p-1", name="a")],
+        servers={"p-1": [ServerInfo(id="i-2", name="w", project_id="p-1", status="ACTIVE", flavor_id="f-1")]},
+        volumes={"p-1": []},
+    )
+    ctx = PreflightContext(plan_kind=PlanKind.SNAPSHOT, gateway=gw, instance_uuid="missing")
+    assert ctx.find_server() is None
 
 
 def test_duplicate_registration_raises() -> None:

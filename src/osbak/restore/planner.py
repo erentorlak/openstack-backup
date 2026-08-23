@@ -10,11 +10,10 @@ from osbak.restore.model import (
 
 
 def _order_bdm(block_device_mapping: list[dict]) -> list[dict]:
-    """Nova BDM sirasi: boot cihazi (boot_index 0) ONDE, digerleri stabil sirada.
+    """Nova BDM ordering: boot device (boot_index 0) FIRST, others in stable order.
 
-    Manifest'te bootable=0, digerleri -1 (builder.py); ascending `sorted(boot_index)`
-    -1'i onceye alir ve yanlis volumeden boot edilirdi. Boot=0 once, -1 sonra,
-    sirasiyla (stabil).
+    Real manifests use bootable=0 and -1 (builder.py); an ascending `sorted(boot_index)`
+    would put -1 first and boot from the wrong volume. Boot=0 first, -1 later, stable.
     """
     return sorted(block_device_mapping, key=lambda b: 0 if b["boot_index"] == 0 else 1)
 
@@ -33,6 +32,19 @@ class RestorePlanner:
         seq = 0
 
         sg_id_to_name = {sg["id"]: sg["name"] for sg in manifest["security_groups"]}
+
+        # Sessiz yol yok: manifestte tanimli olmayan bir port SG id'si plani durdurur
+        # (sg_id_to_name'de kisi sessizce dusecekti -> port SG'siz yaratilir).
+        unknown_sg = {
+            sid
+            for port in manifest["network"]["ports"]
+            for sid in port["security_group_ids"]
+            if sid not in sg_id_to_name
+        }
+        if unknown_sg:
+            raise RestorePlanError(
+                "port SG'leri manifestte yok: " + ", ".join(sorted(unknown_sg))
+            )
 
         for sg in manifest["security_groups"]:
             steps.append(PlanStep(

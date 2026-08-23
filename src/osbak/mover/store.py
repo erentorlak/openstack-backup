@@ -12,10 +12,11 @@ class ChunkStore(Protocol):
 
 
 class S3ChunkStore:
-    """boto3 tabanlı canlı T1 deposu. Birim test DIŞI (canlı ortam).
+    """Live boto3-backed T1 store; OUT of unit-test scope (live environment).
 
-    S3 anahtarı: `chunk/<blake2b>`. Tek hata yakalama: ClientError — 404 yok
-    anlamına gelir ve `get/exists` için None/False döner (dar, anlamlı).
+    S3 key: `chunk/<blake2b>`. Narrow error contract: only HTTP 404 means "missing"
+    and yields None/False from get/exists; any other ClientError (403, 500, ...) is
+    re-raised so permission failures or outages are never masked as absent chunks.
     """
 
     def __init__(self, bucket: str, client: Any) -> None:
@@ -39,8 +40,10 @@ class S3ChunkStore:
                 Bucket=self._bucket, Key=self._key(chunk_hash)
             )
             return resp["Body"].read()
-        except ClientError:
-            return None
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] == "404":
+                return None
+            raise
 
     def exists(self, chunk_hash: str) -> bool:
         from botocore.exceptions import ClientError
@@ -50,5 +53,7 @@ class S3ChunkStore:
                 Bucket=self._bucket, Key=self._key(chunk_hash)
             )
             return True
-        except ClientError:
-            return False
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] == "404":
+                return False
+            raise

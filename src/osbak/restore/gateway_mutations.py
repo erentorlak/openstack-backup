@@ -60,10 +60,10 @@ class RestoreGateway(Protocol):
 
 
 class SDKRestoreGateway:
-    """Canlı mutasyon sarmalayıcı — birim test DIŞI (canlı ortam doğrulaması).
+    """Live mutation wrapper - OUT of unit-test scope (live-env verification).
 
-    Metotlar Nova/Neutron/Cinder'a delegate eder; tam API çağrıları
-    canlı ortamda doğrulanacak. Sözleşme imzaları yukarıdaki Protocol ile aynıdır.
+    Methods delegate to Nova/Neutron/Cinder; the exact API calls are verified in a
+    live environment. Signatures match the Protocol above.
     """
 
     def __init__(self, conn: Any) -> None:

@@ -12,22 +12,21 @@ class InstancePresent(Check):
     applies_to = frozenset({PlanKind.SNAPSHOT, PlanKind.BACKUP, PlanKind.ROLLBACK})
 
     def run(self, ctx: PreflightContext) -> CheckResult:
-        uuid = ctx.instance_uuid
-        if uuid is None:
+        if ctx.instance_uuid is None:
             return CheckResult(self.name, self.kind, CheckStatus.FAIL, "instance belirtilmedi")
-        for project in ctx.gateway.list_projects():
-            for server in ctx.gateway.list_servers(project.id):
-                if server.id == uuid:
-                    ctx.data["server"] = server
-                    ctx.data["project_id"] = project.id
-                    return CheckResult(
-                        self.name,
-                        self.kind,
-                        CheckStatus.PASS,
-                        f"bulundu: {project.id}/{server.id}",
-                        {"project_id": project.id, "server_id": server.id},
-                    )
-        return CheckResult(self.name, self.kind, CheckStatus.FAIL, f"instance yok: {uuid}")
+        found = ctx.find_server(ctx.instance_uuid)
+        if found is None:
+            return CheckResult(self.name, self.kind, CheckStatus.FAIL, f"instance yok: {ctx.instance_uuid}")
+        project_id, server = found
+        ctx.data["server"] = server
+        ctx.data["project_id"] = project_id
+        return CheckResult(
+            self.name,
+            self.kind,
+            CheckStatus.PASS,
+            f"bulundu: {project_id}/{server.id}",
+            {"project_id": project_id, "server_id": server.id},
+        )
 
 
 @register_check

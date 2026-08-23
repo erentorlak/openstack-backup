@@ -46,4 +46,10 @@ class ValidationEngine:
                 continue
             check = cls()
             results.append(check.run(ctx))
+        if only is not None and not results:
+            # only= ile hicbir check eslesmedi -> bos-green rapor footgun'ini engelle
+            # (typo veya bu plan_kind'e uygulanmayan ad). Sessiz gecis yok.
+            raise ValueError(
+                f"only= hicbir check ile eslesmedi: {', '.join(only)} ({plan_kind.value})"
+            )
         return ValidationReport(plan_kind=plan_kind, results=tuple(results))

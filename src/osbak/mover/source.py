@@ -14,10 +14,10 @@ class VolumeSource(Protocol):
 
 
 class CephRbdSource:
-    """rbd diff --from-snap tabanlı canlı kaynak. Birim test DIŞI (canlı ortam).
+    """Live source based on rbd diff --from-snap. OUT of unit-test scope (live env).
 
-    `__init__` yalnızca find_spec("rados") probe'u yapar; import'u çağrı anında
-    (iter_extents/read) importlib.import_module ile gerçekleşir.
+    `__init__` only probes find_spec("rados"); the import happens lazily at call time
+    (iter_extents/read) via importlib.import_module.
     """
 
     def __init__(
@@ -37,8 +37,8 @@ class CephRbdSource:
         self._resolved: list[Extent] | None = None
 
     def iter_extents(self) -> list[Extent]:
-        # Canlı: rbd diff --whole-object --from-snap <base> → offset/length/zero
-        # → exists=(data) Extent. Kesin komut canlı doğrulamada netleşir.
+        # Live: rbd diff --whole-object --from-snap <base> -> offset/length/zero
+        # -> exists=(data) Extent. Exact command finalized during live verification.
         raise NotImplementedError("canlı ortamda doğrulanacak")
 
     def read(self, extent: Extent) -> bytes:
