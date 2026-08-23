@@ -4,17 +4,36 @@ Bu repo **yalnızca LLM'ler tarafından geliştirilir**. İnsan kod yazmaz.
 Her karar ve tuzak, başka bir ajanın sıfır bağlamla çalışabilmesi için dokümante
 edilir. Tüm dokümanlar bu amaçla yazılır: ne + neden + hangi tuzak.
 
-## Çalışma kuralı
+## Çalışma disiplini (kontrol döngüsü)
 
-- OpenStack davranışı **release-gated**: sürümden sürüme değişir. Bir davranışa
-  güvenmeden önce onu **2024.1 (Caracal)** birincil kaynağından doğrula
-  (docs.openstack.org, ilgili release notes, koddaki 2024.1 dalı). Belleğin
-  taze değil.
-- Gerçek altyapıya asla bağlanma; bağlanacak hiçbir adım (backup/restore/snapshot)
-  geliştirme sırasında çalıştırılmaz. Credential'lar yalnızca config'ten okunur,
-  asla hardcode edilmez.
-- Bir değişiklik = test + doğrulama komutuyla birlikte gönderilir. Doğrulama
-  komutu yoksa o gerçek açıkça söylenir.
+Kontrol kaybetmemek için her iş bu döngüden geçer; döngünün iki token'ı
+**kayıt** ve **doğrula**:
+
+1. **kayıt önce** — chat bellek geçicidir; tek doğruluk kaynağı doc'tur. Bir
+   karar/bulgu kalıcı yere yazılmadan işe devam edilmez (`docs/adr/`,
+   `docs/specs/`, `docs/*.md`, todo list).
+2. **doğrula sonra iddia** — OpenStack davranışı **release-gated**: iddia, onu
+   2024.1 (Caracal) primary kaynaktan kanıtlamadan söylenmez. Kanıt = komut
+   çıktısı, dosya satırı veya kaynak URL. Tahmin iddia değildir; bellek taze
+   değildir.
+3. **araştır-önce-kod** — davranış doğrulanmadan kod denenmez.
+4. **kanıtla-bitti** — "bitti" denmeden önce doğrulama komutu koşulur, çıktısı
+   gösterilir; doğrulama yoksa o gerçek açıkça söylenir.
+5. **tek iş** — her an en fazla bir `in_progress`; todo list güncel tutulur.
+6. **geri dönüşsüz adım yok** — yıkıcı/güç alınmaz işlem önce planlanır,
+   preflight edilir, gerektiğinde onaya sunulur. `plan → validate → apply`
+   ayrımı ürünle aynı.
+7. **takılınca dur** — emin olunamayan yerde icat edilmez; durulur, durum rapor
+   edilir, ilgili subagent ile doğrulanır.
+
+**Subagent politikası** — token sınırı yok; doğrulama veya araştırma gerektiği
+anda **hemen** bir (veya bağımsızsa paralel birkaç) subagent dispatch edilir.
+Her subagent self-contained olmalı: soru + kaynaklar + net output kontratı.
+Protokolün tamamı: `docs/discipline.md`.
+
+**Kuruluş güvenliği** — gerçek altyapıya (OpenStack/Ceph/ONTAP/S3) bağlanan hiçbir
+adım geliştirme sırasında çalıştırılmaz. Credential'lar yalnızca config'ten
+okunur, hardcode edilmez.
 
 ## Tasarım sınırları (release-gated doğrulandı — ihlal edilemez)
 
@@ -48,5 +67,6 @@ Bunlar repo'nun yerçekimi; kod bunların üzerine kurulur:
 
 ## Nereden başla
 
+- `docs/discipline.md` — çalışma disiplini protokolü (döngü, subagent, doğrulama, git)
 - `README.md` — proje özeti ve durum
 - `docs/` — mimari, ADR'ler, LLM notları (dolduruluyor)
